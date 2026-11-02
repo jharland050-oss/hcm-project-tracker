@@ -241,6 +241,21 @@
     .s-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 14px; }
     .s-list { margin: 0 0 0 20px; }
     .s-list li { padding: 3px 0; color: var(--white); }
+
+    /* ── Floor plan / duct layout editor ── */
+    .plan-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .plan-tools .spacer { flex: 1; }
+    .plan-sub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .plan-sub select { width: auto; min-height: 38px; padding: 6px 36px 6px 12px; font-size: 14px; }
+    .plan-tools .icon-btn { font-size: 22px; width: 40px; height: 40px; border: 1.5px solid var(--line-dark); }
+    .plan-wrap { width: 100%; height: auto; max-height: min(68vh, 760px); min-height: 280px; background: #d9d9d9; border-radius: 20px; overflow: hidden; touch-action: none; position: relative; }
+    .plan-wrap svg { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
+    .plan-wrap.draw svg { cursor: crosshair; }
+    .plan-hint { margin: 8px 4px 0; font-size: 13px; color: var(--white-dim); min-height: 18px; }
+    .plan-thumb { width: 72px; height: 52px; border-radius: 10px; object-fit: cover; background: #ddd; flex-shrink: 0; }
+    .legend-sym { display: inline-flex; align-items: center; gap: 6px; margin: 0 14px 6px 0; font-size: 12px; }
+    .r-plan { width: 100%; height: auto; display: block; border: 1px solid #ddd; border-radius: 6px; margin: 6px 0 10px; }
+    .warn-text { color: #ff8a5c; }
     .scope-head-row { display: none; }
     @media (min-width: 861px) {
       .scope-head-row { display: grid; padding: 0 0 6px; border-top: none; font-size: 12px; color: var(--white-faint); }
@@ -1127,9 +1142,11 @@
     }
 
     function loadPhotos() {
-      document.querySelectorAll('img[data-photo]').forEach(async img => {
-        const data = await getPhoto(img.dataset.photo);
-        if (data) img.src = data;
+      document.querySelectorAll('img[data-photo], image[data-photo]').forEach(async el => {
+        const data = await getPhoto(el.dataset.photo);
+        if (!data) return;
+        if (el.tagName.toLowerCase() === 'image') el.setAttribute('href', data);
+        else el.src = data;
       });
     }
 
@@ -1192,9 +1209,12 @@
       s.settings = { labourCost: 60, hoursPerDay: 8, workDays: [1, 2, 3, 4, 5], holidays: true, cupDay: true, closures: [], ...(s.settings || {}) };
       s.settings.gaps = { planning: 5, roughin: 15, ...(s.settings.gaps || {}) };
       if (!s.settings.materialRules) s.settings.materialRules = DEFAULT_MATERIAL_RULES.map(r => ({ ...r }));
+      s.settings.company = { name: 'Heatcool Masters', phone: '', email: '', website: '', abn: '', arctick: '', plumbingLicence: '', ...(s.settings.company || {}) };
       s.projects.forEach(p => {
         ['materials', 'equipment', 'issues', 'docs', 'milestones', 'orders'].forEach(k => { p[k] = p[k] || []; });
         p.scope = { overview: '', items: [], inclusions: '', exclusions: '', assumptions: '', status: 'Draft', version: 0, ...(p.scope || {}) };
+        p.plans = p.plans || [];
+        p.handover = { notes: '', ...(p.handover || {}) };
         p.deadline = p.deadline || '';
         ['contractValue', 'quotedHours', 'materialsBudget'].forEach(k => { if (p[k] === undefined) p[k] = ''; });
       });
@@ -1420,6 +1440,8 @@
     const ui = {
       q: '', trade: '', status: 'open', calMonth: today().slice(0, 7), selDay: today(), calCrew: '',
       schedView: 'month', tlFrom: mondayOf(today()), oType: '', oStatus: 'open', scopeHours: false,
+      planTool: 'select', planSymbol: 'supply', planSel: null, planDraw: null, planHover: null, planScalePts: [], planVB: {}, planPhotoAt: null, ductSize: 200,
+      hoPlans: true, hoPhotos: false,
       rTrade: '', rStatus: 'all', rFrom: addDays(today(), -30), rTo: today(),
       repPhotos: true, repTime: false
     };
@@ -1526,7 +1548,30 @@
         </h2>
         <section class="card">${timelineSection(p)}</section>
 
-        <h2 class="h-section">Stages <a class="btn btn-ghost btn-sm" href="#/project/${p.id}/report/all">${ICON.print} Full report</a></h2>
+        <h2 class="h-section">Floor plans & duct layout
+          <label class="btn btn-ghost btn-sm">${ICON.plus} Upload plan
+            <input type="file" accept="image/*,application/pdf,.pdf" hidden onchange="addPlan('${p.id}', this.files[0])" />
+          </label>
+        </h2>
+        <section class="card">
+          <div class="rows">${p.plans.length ? p.plans.map(pl => {
+            const outlets = pl.items.filter(i => i.type === 'supply').length;
+            return `<a class="brow" href="#/project/${p.id}/plan/${pl.id}" style="align-items:center">
+              <img class="plan-thumb" data-photo="${pl.photo}" alt="" />
+              <div class="brow-main">
+                <div class="brow-title">${esc(pl.name)}</div>
+                <div class="muted">${outlets} outlet${outlets === 1 ? '' : 's'} · ${pl.runs.length} run${pl.runs.length === 1 ? '' : 's'}${pl.scale ? '' : ' · <span class="warn-text">scale not set</span>'}</div>
+              </div>
+            </a>`;
+          }).join('') : empty('No plans yet. Upload the builder’s floor plan (photo or PDF) to mark up unit positions, outlets and duct runs.')}</div>
+        </section>
+
+        <h2 class="h-section">Stages
+          <span class="btn-row">
+            <a class="btn btn-ghost btn-sm" href="#/project/${p.id}/handover">Handover pack</a>
+            <a class="btn btn-ghost btn-sm" href="#/project/${p.id}/report/all">${ICON.print} Full report</a>
+          </span>
+        </h2>
         <div class="stage-cards">
           ${STAGES.map(s => {
             const st = p.stages[s.key];
@@ -2112,6 +2157,7 @@
     function settingsView() {
       return `
         <div class="page-head"><h1 class="page-title">Settings</h1></div>
+        ${companyCard()}
         ${materialRulesCard()}
         <section class="card">
           <h2>Costing</h2>
@@ -2741,6 +2787,903 @@
             <button class="btn btn-ghost btn-sm" onclick="planTimeline('${p.id}')">Plan timeline</button>
           </div>`).join('') : empty('Every active project has dates.')}</div>
         </section>`;
+    }
+
+    /* ══════════ Floor plans & duct layout ══════════
+       Everything is stored in the plan image's own pixel coordinates; plan.scale = pixels per metre. */
+
+    const PLAN_SYMBOLS = {
+      indoor: { label: 'Indoor unit', short: 'IU', color: '#e06a10' },
+      outdoor: { label: 'Outdoor unit', short: 'ODU', color: '#4b5563' },
+      supply: { label: 'Supply outlet', short: 'S', color: '#0b8fc4', sized: true, def: 200 },
+      return: { label: 'Return air', short: 'R', color: '#2a9d63', sized: true, def: 350 },
+      controller: { label: 'Controller', short: 'C', color: '#6b4fd8' },
+      zone: { label: 'Zone damper', short: 'Z', color: '#c58a00' },
+      isolator: { label: 'Isolator', short: 'ISO', color: '#c62828' },
+      drainpt: { label: 'Drain point', short: 'D', color: '#0b8fc4' },
+      note: { label: 'Note', short: '', color: '#111111' },
+      photo: { label: 'Photo', short: '', color: '#111111' }
+    };
+    const RUN_KINDS = {
+      duct: { label: 'Duct', color: '#e0940f' },
+      pipe: { label: 'Refrigerant pipe', color: '#c2410c' },
+      drain: { label: 'Drain', color: '#0b8fc4', dash: true }
+    };
+    const DUCT_SIZES = [150, 200, 250, 300, 350, 400, 450, 500];
+    /* Typical airflow for a residential outlet of each size — a starting point, edit per outlet */
+    const AIRFLOW_BY_SIZE = { 150: 35, 200: 65, 250: 100, 300: 145, 350: 200, 400: 260, 450: 330, 500: 400 };
+    const MAX_DUCT_VELOCITY = 5; /* m/s — above this flexible duct gets noisy */
+    const FLEX_LENGTH = 6;       /* m per length of flexible duct */
+
+    const getPlan = (pid, planId) => getP(pid).plans.find(x => x.id === planId);
+    const planR = plan => Math.max(plan.w, plan.h) / 70;
+    const rnd = n => Math.round(n * 10) / 10;
+
+    function runLength(plan, r) {
+      if (!plan.scale) return 0;
+      let px = 0;
+      for (let i = 1; i < r.points.length; i++) px += Math.hypot(r.points[i][0] - r.points[i - 1][0], r.points[i][1] - r.points[i - 1][1]);
+      return px / plan.scale;
+    }
+
+    const itemAirflow = it => parseFloat(it.airflow) || AIRFLOW_BY_SIZE[it.size] || 0;
+    const ductVelocity = (lps, mm) => lps && mm ? (lps / 1000) / (Math.PI * Math.pow(mm / 2000, 2)) : 0;
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('Could not load ' + src));
+        document.head.appendChild(s);
+      });
+    }
+
+    /* Plans need more detail than site photos: up to 2400 px, white background for transparent PNGs */
+    function canvasToPlan(draw, w, h) {
+      const scale = Math.min(1, 2400 / Math.max(w, h));
+      const c = document.createElement('canvas');
+      c.width = Math.round(w * scale);
+      c.height = Math.round(h * scale);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, c.width, c.height);
+      draw(ctx, c.width, c.height);
+      return { data: c.toDataURL('image/jpeg', 0.85), w: c.width, h: c.height };
+    }
+
+    function imageFileToPlan(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => { URL.revokeObjectURL(url); resolve(canvasToPlan((ctx, w, h) => ctx.drawImage(img, 0, 0, w, h), img.width, img.height)); };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read the image')); };
+        img.src = url;
+      });
+    }
+
+    async function pdfFileToPlan(file) {
+      if (!window.pdfjsLib) {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+      const pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      let pageNo = 1;
+      if (pdf.numPages > 1) {
+        pageNo = parseInt(prompt(`This PDF has ${pdf.numPages} pages. Which page is the floor plan?`, '1'), 10) || 1;
+        pageNo = Math.min(Math.max(pageNo, 1), pdf.numPages);
+      }
+      const page = await pdf.getPage(pageNo);
+      const base = page.getViewport({ scale: 1 });
+      const scale = Math.min(4, 2400 / Math.max(base.width, base.height));
+      const vp = page.getViewport({ scale });
+      const c = document.createElement('canvas');
+      c.width = Math.round(vp.width);
+      c.height = Math.round(vp.height);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, c.width, c.height);
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      return { data: c.toDataURL('image/jpeg', 0.85), w: c.width, h: c.height };
+    }
+
+    async function addPlan(pid, file) {
+      if (!file) return;
+      const p = getP(pid);
+      toast('Loading plan…');
+      let img;
+      try {
+        img = /pdf/i.test(file.type) || /\.pdf$/i.test(file.name) ? await pdfFileToPlan(file) : await imageFileToPlan(file);
+      } catch (err) {
+        console.error(err);
+        toast(navigator.onLine ? 'Could not read that file' : 'Connect to the internet the first time you upload a PDF');
+        return;
+      }
+      const photo = uid();
+      await idb('photos', 'readwrite', s => s.put(img.data, photo));
+      photoCache.set(photo, img.data);
+      queueUpload('photos', photo);
+      const plan = {
+        id: uid(), name: file.name.replace(/\.[^.]+$/, '') || `Plan ${p.plans.length + 1}`, photo, w: img.w, h: img.h,
+        scale: 0, systemAirflow: '', items: [], runs: [], created: Date.now()
+      };
+      p.plans.push(plan);
+      save();
+      Object.assign(ui, { planTool: 'scale', planSel: null, planDraw: null, planScalePts: [] });
+      location.hash = `#/project/${pid}/plan/${plan.id}`;
+      toast('First set the scale: tap two points a known distance apart');
+    }
+
+    /* ── Drawing the overlay (shared by the editor and printouts) ── */
+
+    function planItemSVG(plan, it, selected) {
+      const R = planR(plan), sym = PLAN_SYMBOLS[it.type] || PLAN_SYMBOLS.note, c = sym.color, sw = R * 0.14;
+      const halo = `stroke="#fff" stroke-width="${R * 0.32}" paint-order="stroke" stroke-linejoin="round"`;
+      const text = (t, x, y, size = R * 0.8, fill = '#111') =>
+        `<text x="${x}" y="${y}" font-size="${size}" text-anchor="middle" dominant-baseline="central" font-family="Outfit, Arial, sans-serif" font-weight="600" fill="${fill}" ${halo}>${esc(t)}</text>`;
+      const { x, y } = it;
+      let shape = '', below = '';
+      switch (it.type) {
+        case 'supply':
+          shape = `<circle cx="${x}" cy="${y}" r="${R}" fill="${c}" fill-opacity="0.18" stroke="${c}" stroke-width="${sw}"/>
+            <path d="M${x - R * 0.7} ${y}H${x + R * 0.7}M${x} ${y - R * 0.7}V${y + R * 0.7}" stroke="${c}" stroke-width="${sw}"/>`;
+          below = `${it.label || ''}${it.size ? ' · ' + it.size : ''}`;
+          break;
+        case 'return':
+          shape = `<rect x="${x - R * 1.2}" y="${y - R * 0.8}" width="${R * 2.4}" height="${R * 1.6}" rx="${R * 0.15}" fill="${c}" fill-opacity="0.18" stroke="${c}" stroke-width="${sw}"/>
+            <path d="M${x - R * 0.8} ${y - R * 0.4}H${x + R * 0.8}M${x - R * 0.8} ${y}H${x + R * 0.8}M${x - R * 0.8} ${y + R * 0.4}H${x + R * 0.8}" stroke="${c}" stroke-width="${sw * 0.8}"/>`;
+          below = `${it.label || ''}${it.size ? ' · ' + it.size : ''}`;
+          break;
+        case 'indoor':
+          shape = `<rect x="${x - R * 1.7}" y="${y - R * 1.05}" width="${R * 3.4}" height="${R * 2.1}" rx="${R * 0.25}" fill="${c}" fill-opacity="0.2" stroke="${c}" stroke-width="${sw}"/>${text('IU', x, y, R * 0.9, c)}`;
+          below = it.label && it.label !== 'IU' ? it.label : '';
+          break;
+        case 'outdoor':
+          shape = `<rect x="${x - R * 1.4}" y="${y - R * 1.4}" width="${R * 2.8}" height="${R * 2.8}" rx="${R * 0.2}" fill="#fff" fill-opacity="0.85" stroke="${c}" stroke-width="${sw}"/>
+            <circle cx="${x}" cy="${y}" r="${R * 0.95}" fill="none" stroke="${c}" stroke-width="${sw}"/>${text('ODU', x, y, R * 0.6, c)}`;
+          below = it.label && it.label !== 'ODU' ? it.label : '';
+          break;
+        case 'note':
+          shape = text(it.label || 'Note', x, y, R * 0.9);
+          break;
+        case 'photo':
+          shape = `<circle cx="${x}" cy="${y}" r="${R * 0.85}" fill="#fff" stroke="#111" stroke-width="${sw}"/>
+            <rect x="${x - R * 0.45}" y="${y - R * 0.28}" width="${R * 0.9}" height="${R * 0.62}" rx="${R * 0.1}" fill="none" stroke="#111" stroke-width="${sw * 0.8}"/>
+            <circle cx="${x}" cy="${y + R * 0.03}" r="${R * 0.18}" fill="none" stroke="#111" stroke-width="${sw * 0.8}"/>`;
+          below = it.label || '';
+          break;
+        default:
+          shape = `<circle cx="${x}" cy="${y}" r="${R * 0.85}" fill="#fff" stroke="${c}" stroke-width="${sw}"/>${text(sym.short, x, y, sym.short.length > 1 ? R * 0.5 : R * 0.8, c)}`;
+          below = it.label && it.label !== sym.short ? it.label : '';
+      }
+      const ring = selected ? `<circle cx="${x}" cy="${y}" r="${R * 2}" fill="none" stroke="#1aaee6" stroke-width="${R * 0.22}" stroke-dasharray="${R * 0.5} ${R * 0.3}"/>` : '';
+      return `<g>${ring}${shape}${below ? text(below, x, y + R * (it.type === 'outdoor' ? 2.2 : it.type === 'indoor' ? 1.9 : 1.8), R * 0.75) : ''}</g>`;
+    }
+
+    function planRunSVG(plan, r, selected) {
+      if (r.points.length < 2) return '';
+      const R = planR(plan), k = RUN_KINDS[r.kind] || RUN_KINDS.duct;
+      const pts = r.points.map(pt => pt.join(',')).join(' ');
+      const w = r.kind === 'duct' ? R * 0.12 + R * 0.28 * ((parseInt(r.size, 10) || 200) / 200) : R * 0.18;
+      /* Label on the longest segment */
+      let best = 1, bestLen = 0;
+      for (let i = 1; i < r.points.length; i++) {
+        const l = Math.hypot(r.points[i][0] - r.points[i - 1][0], r.points[i][1] - r.points[i - 1][1]);
+        if (l > bestLen) { bestLen = l; best = i; }
+      }
+      const [ax, ay] = r.points[best - 1], [bx, by] = r.points[best];
+      const len = runLength(plan, r);
+      const label = [r.kind === 'duct' ? (r.size ? r.size + ' mm' : '') : (r.size || ''), len ? rnd(len) + ' m' : ''].filter(Boolean).join(' · ');
+      const halo = `stroke="#fff" stroke-width="${R * 0.3}" paint-order="stroke" stroke-linejoin="round"`;
+      return `<g>
+        ${selected ? `<polyline points="${pts}" fill="none" stroke="#1aaee6" stroke-opacity="0.55" stroke-width="${w + R * 0.45}" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+        <polyline points="${pts}" fill="none" stroke="${k.color}" stroke-opacity="0.9" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" ${k.dash ? `stroke-dasharray="${R * 0.6} ${R * 0.4}"` : ''}/>
+        ${label ? `<text x="${(ax + bx) / 2}" y="${(ay + by) / 2 - R * 0.6}" font-size="${R * 0.65}" text-anchor="middle" font-family="Outfit, Arial, sans-serif" font-weight="600" fill="${k.color}" ${halo}>${esc(label)}</text>` : ''}
+        ${selected ? r.points.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="${R * 0.45}" fill="#fff" stroke="#1aaee6" stroke-width="${R * 0.15}"/>`).join('') : ''}
+      </g>`;
+    }
+
+    function planLayerSVG(plan, opts = {}) {
+      const R = planR(plan), sel = opts.selected;
+      let out = plan.runs.map(r => planRunSVG(plan, r, sel && sel.kind === 'run' && sel.id === r.id)).join('')
+        + plan.items.map(it => planItemSVG(plan, it, sel && sel.kind === 'item' && sel.id === it.id)).join('');
+      const d = opts.draw;
+      if (d && d.points.length) {
+        const k = RUN_KINDS[d.kind];
+        const pts = [...d.points, ...(opts.hover ? [[opts.hover.x, opts.hover.y]] : [])];
+        out += `<polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="${k.color}" stroke-width="${R * 0.3}" stroke-dasharray="${R * 0.4} ${R * 0.3}" stroke-linecap="round"/>`
+          + d.points.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="${R * 0.35}" fill="${k.color}"/>`).join('');
+      }
+      (opts.scalePts || []).forEach(([x, y]) => { out += `<circle cx="${x}" cy="${y}" r="${R * 0.5}" fill="#c62828" stroke="#fff" stroke-width="${R * 0.15}"/>`; });
+      return out;
+    }
+
+    function planSVG(plan, cls = 'r-plan') {
+      return `<svg class="${cls}" viewBox="0 0 ${plan.w} ${plan.h}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="${plan.w}" height="${plan.h}" fill="#fff"/>
+        <image data-photo="${plan.photo}" width="${plan.w}" height="${plan.h}"/>
+        ${planLayerSVG(plan)}
+      </svg>`;
+    }
+
+    /* ── Design checks & takeoff ── */
+
+    /* Each outlet with the duct run that feeds it, its airflow and the air speed in that duct */
+    function planSchedule(plan) {
+      return plan.items.filter(i => i.type === 'supply' || i.type === 'return').map(it => {
+        const run = plan.runs.find(r => r.kind === 'duct' && (r.to === it.id || r.from === it.id));
+        const q = itemAirflow(it);
+        const size = run ? parseInt(run.size, 10) || 0 : 0;
+        return { it, run, q, size, len: run ? runLength(plan, run) : 0, v: ductVelocity(q, size) };
+      });
+    }
+
+    function planTakeoff(plan) {
+      const out = [];
+      const add = (name, qty, unit) => { if (qty > 0) out.push({ id: uid(), name, qty: String(r2(qty)), unit, supplier: '', stock: '' }); };
+      const bySize = {};
+      plan.runs.filter(r => r.kind === 'duct').forEach(r => {
+        const s = parseInt(r.size, 10) || 200;
+        const b = bySize[s] = bySize[s] || { runs: 0, lengths: 0 };
+        b.runs++;
+        b.lengths += Math.max(1, Math.ceil(runLength(plan, r) / FLEX_LENGTH));
+      });
+      Object.keys(bySize).sort((a, b) => a - b).forEach(s => {
+        add(`Flexible duct ${s} mm (${FLEX_LENGTH} m length)`, bySize[s].lengths, 'ea');
+        add(`Takeoff spigot ${s} mm`, bySize[s].runs, 'ea');
+      });
+      const count = (type, name) => {
+        const g = {};
+        plan.items.filter(i => i.type === type).forEach(i => { g[i.size || ''] = (g[i.size || ''] || 0) + 1; });
+        Object.keys(g).sort((a, b) => a - b).forEach(s => add(name + (s ? ` ${s} mm` : ''), g[s], 'ea'));
+      };
+      count('supply', 'Ceiling diffuser');
+      count('return', 'Return air grille & filter');
+      count('zone', 'Zone damper');
+      count('controller', 'Wall controller');
+      count('isolator', 'Isolator');
+      const total = kind => plan.runs.filter(r => r.kind === kind).reduce((n, r) => n + runLength(plan, r), 0);
+      const pipe = total('pipe'), drain = total('drain');
+      if (pipe) { add('Pair coil (size to suit unit)', Math.ceil(pipe + 1), 'm'); add('Interconnecting cable 4-core', Math.ceil(pipe + 1), 'm'); }
+      if (drain) add('Condensate drain', Math.ceil(drain + 1), 'm');
+      return out;
+    }
+
+    /* ── Editor ── */
+
+    let planCtx = null;
+
+    function planEditorView(p, planId) {
+      const plan = p.plans.find(x => x.id === planId);
+      if (!plan) return notFound();
+      const tool = ui.planTool;
+      const drawing = ['duct', 'pipe', 'drain'].includes(tool);
+      const tools = [['select', 'Select'], ['symbol', 'Symbols'], ['duct', 'Duct'], ['pipe', 'Pipe'], ['drain', 'Drain'], ['scale', 'Scale']];
+      const hints = {
+        select: 'Tap something to edit it. Drag symbols or the white points on a selected run to move them. Drag the plan to move around; pinch or scroll to zoom.',
+        symbol: `Tap the plan to place a ${PLAN_SYMBOLS[ui.planSymbol].label.toLowerCase()}.`,
+        duct: ui.planDraw ? 'Tap each corner, then tap an outlet to finish (or tap Finish).' : 'Start on the unit or plenum, tap each corner, then tap the outlet.',
+        pipe: ui.planDraw ? 'Tap each corner, then tap the other unit to finish.' : 'Tap the indoor unit, each corner, then the outdoor unit.',
+        drain: ui.planDraw ? 'Tap each corner, then tap Finish.' : 'Tap where the drain starts, each corner, then Finish.',
+        scale: ui.planScalePts.length ? 'Now tap the second point.' : 'Tap two points a known distance apart (e.g. both ends of a dimensioned wall).'
+      };
+      return `
+        <a class="back" href="#/project/${p.id}">${ICON.back} ${esc(p.name)}</a>
+        <div class="page-head">
+          <div>
+            <div class="faint" style="margin-bottom:6px">${esc(p.jobNo)} · Floor plan & duct layout</div>
+            <h1 class="page-title">${esc(plan.name)}</h1>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-ghost btn-sm" onclick="renamePlan()">${ICON.edit} Rename</button>
+            <a class="btn btn-ghost btn-sm" href="#/project/${p.id}/plan/${plan.id}/print">${ICON.print} Print</a>
+          </div>
+        </div>
+        <div class="plan-tools">
+          <div class="seg">${tools.map(([t, l]) => `<button class="${tool === t ? 'on' : ''}" onclick="setPlanTool('${t}')">${l}</button>`).join('')}</div>
+          <span class="spacer"></span>
+          <button class="icon-btn" title="Zoom out" onclick="planZoom(1 / 1.4)">−</button>
+          <button class="icon-btn" title="Zoom in" onclick="planZoom(1.4)">+</button>
+          <button class="btn btn-ghost btn-sm" onclick="planFit()">Fit</button>
+        </div>
+        ${tool === 'symbol' ? `<div class="plan-sub chips">${Object.entries(PLAN_SYMBOLS).map(([k, s]) =>
+          `<button class="chip ${ui.planSymbol === k ? 'on' : ''}" onclick="ui.planSymbol='${k}'; render()">${s.label}</button>`).join('')}</div>` : ''}
+        ${drawing ? `<div class="plan-sub">
+          ${tool === 'duct' ? `<label class="muted">Duct size</label><select onchange="ui.ductSize = this.value">${DUCT_SIZES.map(s => `<option value="${s}" ${String(ui.ductSize) === String(s) ? 'selected' : ''}>${s} mm</option>`).join('')}</select>
+            <span class="faint">Ending on an outlet uses the outlet’s size</span>` : ''}
+          ${ui.planDraw ? `<button class="btn btn-sm" onclick="finishRun()">Finish</button><button class="btn btn-ghost btn-sm" onclick="cancelRun()">Cancel</button>` : ''}
+        </div>` : ''}
+        <div class="plan-wrap ${tool === 'select' ? '' : 'draw'}" style="aspect-ratio:${plan.w} / ${plan.h}">
+          <svg id="plan-svg" data-pid="${p.id}" data-plan="${plan.id}" viewBox="0 0 ${plan.w} ${plan.h}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+            <rect width="${plan.w}" height="${plan.h}" fill="#fff"/>
+            <image data-photo="${plan.photo}" width="${plan.w}" height="${plan.h}"/>
+            <g id="plan-layer"></g>
+          </svg>
+        </div>
+        <div class="plan-hint">${hints[tool]}</div>
+        <input type="file" id="plan-photo-input" accept="image/*" hidden onchange="addPlanPhoto(this.files[0])" />
+        <div id="plan-panel" style="margin-top:12px"></div>`;
+    }
+
+    function initPlanEditor() {
+      const svg = $('plan-svg');
+      const pid = svg.dataset.pid, planId = svg.dataset.plan;
+      const plan = getPlan(pid, planId);
+      planCtx = { pid, planId };
+      let vb = ui.planVB[planId] || { x: 0, y: 0, w: plan.w, h: plan.h };
+      const setVB = v => { vb = v; ui.planVB[planId] = v; svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`); };
+      setVB(vb);
+      drawPlanLayer();
+      updatePlanPanel();
+
+      const toSvg = (cx, cy) => {
+        const pt = svg.createSVGPoint();
+        pt.x = cx; pt.y = cy;
+        const m = svg.getScreenCTM().inverse();
+        const r = pt.matrixTransform(m);
+        return { x: rnd(r.x), y: rnd(r.y) };
+      };
+      const unitsPerPx = () => { const b = svg.getBoundingClientRect(); return Math.max(vb.w / b.width, vb.h / b.height); };
+      const zoomAt = (factor, at, from = vb) => {
+        const w = Math.min(plan.w * 2, Math.max(plan.w / 15, from.w / factor));
+        const f = from.w / w;
+        setVB({ x: at.x - (at.x - from.x) / f, y: at.y - (at.y - from.y) / f, w, h: from.h / f });
+      };
+      planCtx.zoomAt = zoomAt;
+      planCtx.center = () => ({ x: vb.x + vb.w / 2, y: vb.y + vb.h / 2 });
+
+      const pointers = new Map();
+      let drag = null, pinch = null;
+
+      svg.onpointerdown = e => {
+        svg.setPointerCapture(e.pointerId);
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pointers.size === 2) {
+          const [a, b] = [...pointers.values()];
+          pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), at: toSvg((a.x + b.x) / 2, (a.y + b.y) / 2), vb: { ...vb } };
+          drag = null;
+          return;
+        }
+        const pt = toSvg(e.clientX, e.clientY);
+        const start = { cx: e.clientX, cy: e.clientY, vb: { ...vb }, moved: false, pt };
+        if (ui.planTool === 'select') {
+          const hit = planHit(plan, pt, unitsPerPx() * 22);
+          if (hit && hit.type === 'item') {
+            ui.planSel = { kind: 'item', id: hit.it.id };
+            drag = { ...start, kind: 'item', it: hit.it, dx: hit.it.x - pt.x, dy: hit.it.y - pt.y };
+          } else if (hit && hit.type === 'vertex') {
+            drag = { ...start, kind: 'vertex', run: hit.run, index: hit.index };
+          } else if (hit && hit.type === 'run') {
+            ui.planSel = { kind: 'run', id: hit.run.id };
+            drag = { ...start, kind: 'pan' };
+          } else {
+            drag = { ...start, kind: 'pan', deselect: true };
+          }
+          drawPlanLayer();
+          updatePlanPanel();
+        } else {
+          drag = { ...start, kind: 'tap' };
+        }
+      };
+
+      svg.onpointermove = e => {
+        if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pinch && pointers.size === 2) {
+          const [a, b] = [...pointers.values()];
+          zoomAt(Math.hypot(a.x - b.x, a.y - b.y) / pinch.dist, pinch.at, pinch.vb);
+          return;
+        }
+        if (!drag) {
+          /* Live preview of the next segment while drawing (mouse / pen hover) */
+          if (ui.planDraw) { ui.planHover = toSvg(e.clientX, e.clientY); drawPlanLayer(); }
+          return;
+        }
+        if (Math.hypot(e.clientX - drag.cx, e.clientY - drag.cy) > 6) drag.moved = true;
+        if (!drag.moved) return;
+        if (drag.kind === 'item') {
+          const pt = toSvg(e.clientX, e.clientY);
+          drag.it.x = rnd(pt.x + drag.dx);
+          drag.it.y = rnd(pt.y + drag.dy);
+          plan.runs.forEach(r => {
+            if (r.from === drag.it.id) r.points[0] = [drag.it.x, drag.it.y];
+            if (r.to === drag.it.id) r.points[r.points.length - 1] = [drag.it.x, drag.it.y];
+          });
+          drawPlanLayer();
+        } else if (drag.kind === 'vertex') {
+          const pt = toSvg(e.clientX, e.clientY);
+          drag.run.points[drag.index] = [pt.x, pt.y];
+          drawPlanLayer();
+        } else {
+          const s = Math.max(drag.vb.w / svg.getBoundingClientRect().width, drag.vb.h / svg.getBoundingClientRect().height);
+          setVB({ ...drag.vb, x: drag.vb.x - (e.clientX - drag.cx) * s, y: drag.vb.y - (e.clientY - drag.cy) * s });
+        }
+      };
+
+      svg.onpointerup = svg.onpointercancel = e => {
+        pointers.delete(e.pointerId);
+        if (pinch) { if (pointers.size < 2) pinch = null; drag = null; return; }
+        const d = drag;
+        drag = null;
+        if (!d) return;
+        if (d.kind === 'item' || d.kind === 'vertex') { if (d.moved) { save(); updatePlanPanel(); } return; }
+        if (d.kind === 'pan' && !d.moved && d.deselect) { ui.planSel = null; drawPlanLayer(); updatePlanPanel(); return; }
+        if (d.kind === 'tap' && !d.moved) planTap(plan, d.pt, unitsPerPx() * 22);
+      };
+
+      svg.onwheel = e => {
+        e.preventDefault();
+        zoomAt(Math.pow(1.0015, -e.deltaY), toSvg(e.clientX, e.clientY));
+      };
+      svg.ondblclick = () => { if (ui.planDraw) finishRun(); };
+    }
+
+    function segDist(p, a, b) {
+      const dx = b[0] - a[0], dy = b[1] - a[1];
+      const t = dx || dy ? Math.max(0, Math.min(1, ((p.x - a[0]) * dx + (p.y - a[1]) * dy) / (dx * dx + dy * dy))) : 0;
+      return Math.hypot(p.x - (a[0] + t * dx), p.y - (a[1] + t * dy));
+    }
+
+    function planHit(plan, pt, tol) {
+      const R = planR(plan);
+      const sel = ui.planSel && ui.planSel.kind === 'run' ? plan.runs.find(r => r.id === ui.planSel.id) : null;
+      if (sel) {
+        const index = sel.points.findIndex(([x, y]) => Math.hypot(x - pt.x, y - pt.y) <= Math.max(tol, R * 0.6));
+        /* Ends attached to a symbol move with the symbol, so only free points can be dragged */
+        if (index >= 0 && !(index === 0 && sel.from) && !(index === sel.points.length - 1 && sel.to)) return { type: 'vertex', run: sel, index };
+      }
+      for (let i = plan.items.length - 1; i >= 0; i--) {
+        const it = plan.items[i];
+        if (Math.hypot(it.x - pt.x, it.y - pt.y) <= Math.max(tol, R * 1.5)) return { type: 'item', it };
+      }
+      for (let i = plan.runs.length - 1; i >= 0; i--) {
+        const r = plan.runs[i];
+        for (let j = 1; j < r.points.length; j++) if (segDist(pt, r.points[j - 1], r.points[j]) <= Math.max(tol, R * 0.5)) return { type: 'run', run: r };
+      }
+      return null;
+    }
+
+    function planTap(plan, pt, tol) {
+      const tool = ui.planTool;
+      if (tool === 'symbol') {
+        const type = ui.planSymbol, sym = PLAN_SYMBOLS[type];
+        if (type === 'photo') { ui.planPhotoAt = pt; $('plan-photo-input').click(); return; }
+        let label = sym.short;
+        if (type === 'supply' || type === 'return') label = sym.short + (plan.items.filter(i => i.type === type).length + 1);
+        if (type === 'note') { label = prompt('Note text'); if (!label) return; }
+        const it = { id: uid(), type, x: pt.x, y: pt.y, label, size: sym.sized ? String(sym.def) : '', airflow: '', note: '' };
+        plan.items.push(it);
+        ui.planSel = { kind: 'item', id: it.id };
+        save(); drawPlanLayer(); updatePlanPanel();
+        return;
+      }
+      if (tool === 'scale') {
+        ui.planScalePts.push([pt.x, pt.y]);
+        if (ui.planScalePts.length === 2) {
+          const [a, b] = ui.planScalePts;
+          const px = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          const m = parseFloat(prompt('Real distance between the two points, in metres:', ''));
+          ui.planScalePts = [];
+          if (m > 0 && px > 0) {
+            plan.scale = px / m;
+            ui.planTool = 'select';
+            save(); render();
+            toast(`Scale set — lengths are now measured in metres`);
+            return;
+          }
+          toast('Scale not set — try again');
+        }
+        drawPlanLayer();
+        render();
+        return;
+      }
+      if (['duct', 'pipe', 'drain'].includes(tool)) {
+        const R = planR(plan);
+        const snap = plan.items.slice().reverse().find(it => Math.hypot(it.x - pt.x, it.y - pt.y) <= Math.max(tol, R * 1.5));
+        const point = snap ? [snap.x, snap.y] : [pt.x, pt.y];
+        if (!ui.planDraw) {
+          ui.planDraw = { kind: tool, points: [point], from: snap ? snap.id : null };
+          render();
+          return;
+        }
+        ui.planDraw.points.push(point);
+        if (snap && snap.id !== ui.planDraw.from) { ui.planDraw.to = snap.id; finishRun(); return; }
+        drawPlanLayer();
+      }
+    }
+
+    function drawPlanLayer() {
+      const layer = $('plan-layer');
+      if (!layer || !planCtx) return;
+      const plan = getPlan(planCtx.pid, planCtx.planId);
+      layer.innerHTML = planLayerSVG(plan, { selected: ui.planSel, draw: ui.planDraw, hover: ui.planHover, scalePts: ui.planScalePts });
+    }
+
+    function setPlanTool(t) {
+      Object.assign(ui, { planTool: t, planDraw: null, planHover: null, planScalePts: [] });
+      if (t !== 'select') ui.planSel = null;
+      render();
+    }
+
+    function finishRun() {
+      const d = ui.planDraw;
+      const plan = getPlan(planCtx.pid, planCtx.planId);
+      ui.planDraw = null;
+      ui.planHover = null;
+      if (!d || d.points.length < 2) { render(); return; }
+      const end = d.to ? plan.items.find(i => i.id === d.to) : null;
+      const start = d.from ? plan.items.find(i => i.id === d.from) : null;
+      const outlet = [end, start].find(i => i && (i.type === 'supply' || i.type === 'return') && i.size);
+      const size = d.kind === 'duct' ? (outlet ? outlet.size : String(ui.ductSize)) : d.kind === 'drain' ? '20 mm' : '';
+      const run = { id: uid(), kind: d.kind, size, points: d.points, from: d.from || null, to: d.to || null };
+      plan.runs.push(run);
+      ui.planSel = { kind: 'run', id: run.id };
+      save(); render();
+    }
+
+    function cancelRun() { ui.planDraw = null; ui.planHover = null; render(); }
+
+    function planZoom(f) { if (planCtx && planCtx.zoomAt) planCtx.zoomAt(f, planCtx.center()); }
+    function planFit() { if (planCtx) { delete ui.planVB[planCtx.planId]; render(); } }
+
+    function renamePlan() {
+      const plan = getPlan(planCtx.pid, planCtx.planId);
+      const name = prompt('Plan name', plan.name);
+      if (name && name.trim()) { plan.name = name.trim(); save(); render(); }
+    }
+
+    async function addPlanPhoto(file) {
+      if (!file || !planCtx || !ui.planPhotoAt) return;
+      const plan = getPlan(planCtx.pid, planCtx.planId);
+      const data = await compressImage(file);
+      const photoId = uid();
+      await idb('photos', 'readwrite', s => s.put(data, photoId));
+      photoCache.set(photoId, data);
+      queueUpload('photos', photoId);
+      const it = { id: uid(), type: 'photo', x: ui.planPhotoAt.x, y: ui.planPhotoAt.y, label: '', photoId, size: '', airflow: '', note: '' };
+      plan.items.push(it);
+      ui.planSel = { kind: 'item', id: it.id };
+      ui.planPhotoAt = null;
+      save(); drawPlanLayer(); updatePlanPanel();
+      toast('Photo pinned');
+    }
+
+    /* ── Side panel: selected item, design checks, takeoff ── */
+
+    function setPlanItem(id, k, v, refreshPanel) {
+      const plan = getPlan(planCtx.pid, planCtx.planId);
+      const it = plan.items.find(i => i.id === id);
+      const old = it[k];
+      it[k] = v;
+      /* A duct that matched the outlet's old size follows the new size */
+      if (k === 'size') plan.runs.forEach(r => { if (r.kind === 'duct' && (r.to === id || r.from === id) && r.size === old) r.size = v; });
+      save(); drawPlanLayer();
+      if (refreshPanel) updatePlanPanel();
+    }
+
+    function setPlanRun(id, k, v, refreshPanel) {
+      const plan = getPlan(planCtx.pid, planCtx.planId);
+      plan.runs.find(r => r.id === id)[k] = v;
+      save(); drawPlanLayer();
+      if (refreshPanel) updatePlanPanel();
+    }
+
+    function setPlanField(k, v) {
+      getPlan(planCtx.pid, planCtx.planId)[k] = v;
+      save(); updatePlanPanel();
+    }
+
+    async function deletePlanSel() {
+      const plan = getPlan(planCtx.pid, planCtx.planId);
+      const sel = ui.planSel;
+      if (!sel) return;
+      if (sel.kind === 'item') {
+        const it = plan.items.find(i => i.id === sel.id);
+        if (it.photoId) {
+          await idb('photos', 'readwrite', s => s.delete(it.photoId));
+          photoCache.delete(it.photoId);
+          removeRemoteFile('photos', it.photoId);
+        }
+        plan.items = plan.items.filter(i => i.id !== sel.id);
+        plan.runs.forEach(r => { if (r.from === sel.id) r.from = null; if (r.to === sel.id) r.to = null; });
+      } else {
+        plan.runs = plan.runs.filter(r => r.id !== sel.id);
+      }
+      ui.planSel = null;
+      save(); drawPlanLayer(); updatePlanPanel();
+    }
+
+    async function deletePlan() {
+      const p = getP(planCtx.pid), plan = getPlan(planCtx.pid, planCtx.planId);
+      if (!confirm(`Delete the plan “${plan.name}” and everything marked on it?`)) return;
+      const photos = [plan.photo, ...plan.items.filter(i => i.photoId).map(i => i.photoId)];
+      await idb('photos', 'readwrite', s => photos.forEach(id => s.delete(id)));
+      photos.forEach(id => { photoCache.delete(id); removeRemoteFile('photos', id); });
+      p.plans = p.plans.filter(x => x.id !== plan.id);
+      save();
+      location.hash = `#/project/${p.id}`;
+    }
+
+    function planSelectedHTML(plan) {
+      const sel = ui.planSel;
+      if (!sel) return '';
+      if (sel.kind === 'item') {
+        const it = plan.items.find(i => i.id === sel.id);
+        if (!it) return '';
+        const sym = PLAN_SYMBOLS[it.type];
+        const sched = planSchedule(plan).find(s => s.it.id === it.id);
+        return `<section class="card"><h2>${sym.label} <button class="btn btn-danger btn-sm" onclick="deletePlanSel()">Delete</button></h2>
+          <div class="fgrid">
+            <div><label class="lbl">${it.type === 'note' ? 'Note' : 'Label'}</label><input value="${esc(it.label)}" oninput="setPlanItem('${it.id}','label',this.value)" /></div>
+            ${sym.sized ? `<div><label class="lbl">Size (mm)</label><select onchange="setPlanItem('${it.id}','size',this.value,true)">${DUCT_SIZES.map(s => `<option ${String(s) === String(it.size) ? 'selected' : ''}>${s}</option>`).join('')}</select></div>` : ''}
+            ${it.type === 'supply' ? `<div><label class="lbl">Airflow (L/s)</label><input type="number" inputmode="decimal" min="0" value="${esc(it.airflow)}" placeholder="${AIRFLOW_BY_SIZE[it.size] || ''} typical" onchange="setPlanItem('${it.id}','airflow',this.value,true)" /></div>` : ''}
+            <div class="${sym.sized ? '' : 'fwide'}"><label class="lbl">Notes</label><input value="${esc(it.note)}" placeholder="e.g. Bed 2, centre of ceiling" oninput="setPlanItem('${it.id}','note',this.value)" /></div>
+          </div>
+          ${it.photoId ? `<button style="margin-top:12px;border-radius:14px;overflow:hidden;display:block;max-width:260px" onclick="showModal('<div class=&quot;lightbox&quot;><img data-photo=&quot;${it.photoId}&quot; alt=&quot;&quot;/></div><div class=&quot;modal-actions&quot;><button class=&quot;btn btn-ghost&quot; onclick=&quot;closeModal()&quot;>Close</button></div>'); loadPhotos()"><img data-photo="${it.photoId}" alt="" style="width:100%;display:block" /></button>` : ''}
+          ${sched && sched.run ? `<p class="muted" style="margin-top:12px">Fed by a ${sched.size} mm duct${sched.len ? `, ${rnd(sched.len)} m long` : ''}${sched.v ? ` · air speed ${rnd(sched.v)} m/s${sched.v > MAX_DUCT_VELOCITY ? ' <span class="warn-text">— likely noisy, use a larger duct</span>' : ''}` : ''}</p>` : ''}
+        </section>`;
+      }
+      const r = plan.runs.find(x => x.id === sel.id);
+      if (!r) return '';
+      const name = id => plan.items.find(i => i.id === id)?.label || '';
+      return `<section class="card"><h2>${RUN_KINDS[r.kind].label} run <button class="btn btn-danger btn-sm" onclick="deletePlanSel()">Delete</button></h2>
+        <div class="fgrid">
+          <div><label class="lbl">Size</label>${r.kind === 'duct'
+            ? `<select onchange="setPlanRun('${r.id}','size',this.value,true)">${DUCT_SIZES.map(s => `<option ${String(s) === String(r.size) ? 'selected' : ''}>${s}</option>`).join('')}</select>`
+            : `<input value="${esc(r.size)}" placeholder="${r.kind === 'pipe' ? 'e.g. 1/4&quot; + 1/2&quot;' : 'e.g. 20 mm'}" oninput="setPlanRun('${r.id}','size',this.value)" />`}</div>
+          <div><label class="lbl">Length</label><div style="padding:12px 4px">${plan.scale ? rnd(runLength(plan, r)) + ' m' : 'Set the scale to measure'}</div></div>
+        </div>
+        ${name(r.from) || name(r.to) ? `<p class="muted" style="margin-top:10px">${[name(r.from), name(r.to)].filter(Boolean).join(' → ')}</p>` : ''}
+      </section>`;
+    }
+
+    function updatePlanPanel() {
+      const el = $('plan-panel');
+      if (!el || !planCtx) return;
+      const p = getP(planCtx.pid), plan = getPlan(planCtx.pid, planCtx.planId);
+      const sched = planSchedule(plan);
+      const supply = sched.filter(s => s.it.type === 'supply');
+      const totalQ = supply.reduce((n, s) => n + s.q, 0);
+      const sysQ = parseFloat(plan.systemAirflow) || 0;
+      const takeoff = planTakeoff(plan);
+      el.innerHTML = `<div class="stack">
+        ${planSelectedHTML(plan)}
+        <section class="card">
+          <h2>Design check</h2>
+          <div class="fgrid">
+            <div><label class="lbl">Unit airflow (L/s)</label><input type="number" inputmode="decimal" min="0" value="${esc(plan.systemAirflow)}" placeholder="From the unit’s spec sheet" onchange="setPlanField('systemAirflow', this.value)" /></div>
+            <div><label class="lbl">Scale</label><div style="padding:12px 4px">${plan.scale ? `Set · <a href="#" style="color:var(--c-cyan)" onclick="event.preventDefault(); setPlanTool('scale')">reset</a>` : `<span class="warn-text">Not set</span> · <a href="#" style="color:var(--c-cyan)" onclick="event.preventDefault(); setPlanTool('scale')">set scale</a>`}</div></div>
+          </div>
+          <p class="muted" style="margin-top:12px">${supply.length} supply outlet${supply.length === 1 ? '' : 's'} · ${Math.round(totalQ)} L/s total${sysQ ? ` of ${Math.round(sysQ)} L/s unit airflow${Math.abs(totalQ - sysQ) / sysQ > 0.15 ? ` <span class="warn-text">— outlets ${totalQ > sysQ ? 'exceed' : 'are well under'} the unit airflow</span>` : ''}` : ''}</p>
+          ${sched.length ? `<div class="tbl-wrap" style="margin-top:10px"><table class="tbl">
+            <thead><tr><th>Outlet</th><th class="num">Size</th><th class="num">Airflow</th><th class="num">Duct</th><th class="num">Length</th><th class="num">Air speed</th></tr></thead>
+            <tbody>${sched.map(s => `<tr class="click" onclick="ui.planSel={kind:'item',id:'${s.it.id}'}; drawPlanLayer(); updatePlanPanel(); window.scrollTo(0, 0)">
+              <td>${esc(s.it.label || PLAN_SYMBOLS[s.it.type].label)}${s.it.note ? `<div class="faint">${esc(s.it.note)}</div>` : ''}</td>
+              <td class="num">${s.it.size || ''}</td>
+              <td class="num">${s.it.type === 'supply' ? Math.round(s.q) + ' L/s' : ''}</td>
+              <td class="num">${s.run ? s.size + ' mm' : '<span class="warn-text">no duct</span>'}</td>
+              <td class="num">${s.len ? rnd(s.len) + ' m' : ''}</td>
+              <td class="num ${s.v > MAX_DUCT_VELOCITY ? 'over' : ''}">${s.v && s.it.type === 'supply' ? rnd(s.v) + ' m/s' : ''}</td>
+            </tr>`).join('')}</tbody>
+          </table></div>` : ''}
+          <p class="faint" style="margin-top:10px">Airflow defaults are typical values for each outlet size and the noise limit is ${MAX_DUCT_VELOCITY} m/s — a guide for layout, not a substitute for a full duct design.</p>
+        </section>
+        <section class="card">
+          <h2>Material takeoff</h2>
+          ${takeoff.length ? `<div class="rows">${takeoff.map(m => `<div class="brow" style="padding:8px 0"><div class="brow-main">${esc(m.name)}</div><div class="brow-side"><b>${m.qty}</b> ${esc(m.unit)}</div></div>`).join('')}</div>` : empty('Place outlets and draw runs to build the takeoff.')}
+          ${!plan.scale && plan.runs.length ? '<p class="warn-text" style="font-size:13px;margin-top:8px">Set the scale so duct and pipe lengths are measured.</p>' : ''}
+          ${takeoff.length ? `<div class="btn-row" style="margin-top:14px">
+            <button class="btn btn-sm" onclick="orderFromPlan()">Create material order</button>
+            <button class="btn btn-ghost btn-sm" onclick="planToInspection()">Use in preinspection</button>
+          </div>` : ''}
+        </section>
+        <div><button class="btn btn-danger btn-sm" onclick="deletePlan()">Delete plan</button></div>
+      </div>`;
+      loadPhotos();
+    }
+
+    function orderFromPlan() {
+      const { pid, planId } = planCtx;
+      const p = getP(pid), plan = getPlan(pid, planId);
+      const items = planTakeoff(plan);
+      const n = p.orders.filter(o => o.type === 'material').length + 1;
+      const o = {
+        id: uid(), type: 'material', number: `${p.jobNo}-M${n}`, status: 'Draft', created: Date.now(), materials: items, photos: [],
+        data: { date: today(), installer: '', deliverTo: 'Site', deliveryAddress: p.address, stage: 'Rough-in', source: plan.name }
+      };
+      p.orders.push(o);
+      save();
+      location.hash = `#/project/${pid}/order/${o.id}`;
+      toast('Material order created from the layout — add suppliers and check quantities');
+    }
+
+    /* Fills run lengths and outlet count into the open preinspection draft (or starts one) */
+    function planToInspection() {
+      const { pid, planId } = planCtx;
+      const p = getP(pid), plan = getPlan(pid, planId);
+      const total = kind => Math.ceil(plan.runs.filter(r => r.kind === kind).reduce((n, r) => n + runLength(plan, r), 0));
+      let o = [...p.orders].filter(x => x.type === 'inspection' && x.status === 'Draft').sort((a, b) => b.created - a.created)[0];
+      if (!o) {
+        newOrder(pid, 'inspection');
+        o = p.orders[p.orders.length - 1];
+      }
+      const set = (k, v) => { if (v) o.data[k] = String(v); };
+      set('pipeRun', total('pipe'));
+      set('cableRun', total('pipe'));
+      set('drainRun', total('drain'));
+      set('outlets', plan.items.filter(i => i.type === 'supply').length);
+      save();
+      location.hash = `#/project/${pid}/order/${o.id}`;
+      toast('Run lengths and outlets copied from the layout');
+    }
+
+    function planLegendHTML(plan) {
+      const used = new Set(plan.items.map(i => i.type));
+      const kinds = new Set(plan.runs.map(r => r.kind));
+      const sym = (k, s) => `<span class="legend-sym"><svg width="22" height="22" viewBox="-2 -2 4 4">${planItemSVG({ w: 90, h: 90 }, { type: k, x: 0, y: 0, label: '' }, false)}</svg>${s.label}</span>`;
+      return [...Object.entries(PLAN_SYMBOLS).filter(([k]) => used.has(k) && k !== 'note').map(([k, s]) => sym(k, s)),
+        ...[...kinds].map(k => `<span class="legend-sym"><svg width="26" height="8"><line x1="1" y1="4" x2="25" y2="4" stroke="${RUN_KINDS[k].color}" stroke-width="4" ${RUN_KINDS[k].dash ? 'stroke-dasharray="5 3"' : ''}/></svg>${RUN_KINDS[k].label}</span>`)].join('');
+    }
+
+    function planPrintView(p, planId) {
+      const plan = p.plans.find(x => x.id === planId);
+      if (!plan) return notFound();
+      const sched = planSchedule(plan);
+      const takeoff = planTakeoff(plan);
+      return `
+        <div class="report-bar no-print">
+          <a class="back" href="#/project/${p.id}/plan/${plan.id}">${ICON.back} Back</a>
+          <button class="btn" onclick="window.print()">${ICON.print} Print / save PDF</button>
+        </div>
+        <article class="report">
+          <div class="r-head">
+            <div><h1>Duct layout — ${esc(plan.name)}</h1><div class="r-sub">${esc(p.jobNo)} · ${esc(p.name)} · ${esc(p.address || '')}</div></div>
+            <img src="./logo.jpg" alt="Heatcool Masters" />
+          </div>
+          ${planSVG(plan)}
+          <div>${planLegendHTML(plan)}</div>
+          ${sched.length ? `<h2>Outlet schedule</h2><table class="r-tbl">
+            <tr><th>Outlet</th><th class="num">Size</th><th class="num">Airflow</th><th class="num">Duct</th><th class="num">Length</th><th>Notes</th></tr>
+            ${sched.map(s => `<tr><td>${esc(s.it.label || '')}</td><td class="num">${s.it.size || ''}</td><td class="num">${s.it.type === 'supply' ? Math.round(s.q) + ' L/s' : ''}</td>
+              <td class="num">${s.run ? s.size + ' mm' : ''}</td><td class="num">${s.len ? rnd(s.len) + ' m' : ''}</td><td>${esc(s.it.note || '')}</td></tr>`).join('')}
+          </table>` : ''}
+          ${takeoff.length ? `<h2>Material takeoff</h2><table class="r-tbl">
+            <tr><th>Item</th><th class="num">Qty</th><th>Unit</th></tr>
+            ${takeoff.map(m => `<tr><td>${esc(m.name)}</td><td class="num">${m.qty}</td><td>${esc(m.unit)}</td></tr>`).join('')}
+          </table>` : ''}
+          <div class="r-foot">${esc(state.settings.company.name)} · ${esc(p.jobNo)} · ${esc(plan.name)} · Generated ${new Date().toLocaleString('en-AU')}</div>
+        </article>`;
+    }
+
+    /* ══════════ Handover pack ══════════ */
+
+    const CARE_TIPS = {
+      refrigerated: ['Clean the return air filter (ducted) or the indoor unit filters (wall splits) every 1–3 months.',
+        'Keep at least 500 mm clear around the outdoor unit, free of plants, leaves and stored items.',
+        'Have the system serviced every 12 months by a licensed technician — most warranties require it.',
+        'Set a temperature and leave it rather than switching on and off: 24–26 °C in summer and 18–21 °C in winter is efficient.',
+        'If water drips inside, the system makes unusual noises, or ice forms on the pipes, turn it off and call us.'],
+      gas: ['Have the gas heater serviced every 2 years by a licensed gas fitter, or as the manufacturer requires.',
+        'Keep the return air grille clear and clean its filter regularly.',
+        'Don’t store anything flammable near the heater or its flue.',
+        'If you smell gas: turn the heater off, don’t use electrical switches, open doors and windows, and call your gas emergency line.'],
+      evap: ['Open some windows or doors while the cooler runs — evaporative cooling needs air to flow out of the house.',
+        'Drain and clean the cooler at the end of summer and fit a winter cover.',
+        'Have the pads and water system checked each spring before the first hot day.'],
+      hws: ['Hot water at bathroom taps is limited to 50 °C by the tempering valve — please don’t adjust it.',
+        'Check the relief valve as described in the manufacturer’s manual and have the unit serviced as recommended.'],
+      plumbing: ['Know where your water meter and main shut-off valve are.',
+        'Report leaks, damp patches or slow drains early — small problems are cheaper to fix.',
+        'Don’t put fats, wipes or rubbish down drains or toilets.']
+    };
+
+    function careTipsFor(p) {
+      const types = p.equipment.map(e => e.type);
+      const has = re => types.some(t => re.test(t));
+      const groups = [];
+      if (has(/Ducted|Split|Multi|Fan coil/) || (p.trade !== 'Plumbing' && !types.length)) groups.push(['Air conditioning', CARE_TIPS.refrigerated]);
+      if (has(/Gas heater/)) groups.push(['Gas heating', CARE_TIPS.gas]);
+      if (has(/Evaporative/)) groups.push(['Evaporative cooling', CARE_TIPS.evap]);
+      if (has(/Hot water/)) groups.push(['Hot water', CARE_TIPS.hws]);
+      if (p.trade !== 'HVAC') groups.push(['Plumbing', CARE_TIPS.plumbing]);
+      return groups;
+    }
+
+    function handoverView(p) {
+      const co = state.settings.company;
+      const c = p.customer || {};
+      const fit = p.stages.fitoff;
+      const date = fit.signoff?.date || fit.end || today();
+      const readings = STAGES.flatMap(s => p.stages[s.key].readings.map(r => ({ ...r, stage: s.label })));
+      const docs = p.docs.filter(d => /Compliance|Warranty/.test(d.category));
+      const contact = [co.phone, co.email, co.website].filter(Boolean).map(esc).join(' · ');
+      const t = today();
+      return `
+        <div class="report-bar no-print">
+          <a class="back" href="#/project/${p.id}">${ICON.back} Back</a>
+          <label class="toggle"><input type="checkbox" ${ui.hoPlans ? 'checked' : ''} onchange="ui.hoPlans = this.checked; render()" /> Layout plans</label>
+          <label class="toggle"><input type="checkbox" ${ui.hoPhotos ? 'checked' : ''} onchange="ui.hoPhotos = this.checked; render()" /> Photos</label>
+          <button class="btn" onclick="window.print()">${ICON.print} Print / save PDF</button>
+        </div>
+        <div class="report-bar no-print" style="display:block">
+          <label class="lbl">Notes for the customer (optional, shown in the pack)</label>
+          <textarea style="min-height:70px" placeholder="e.g. Zone 2 controls the upstairs bedrooms. Filter is behind the hallway return grille." oninput="getP('${p.id}').handover.notes = this.value; save()">${esc(p.handover.notes)}</textarea>
+          ${!co.phone && !co.email ? `<p class="faint" style="margin-top:8px">Tip: add your phone and email in <a href="#/settings" style="color:var(--c-cyan)">Settings → Company details</a> so customers know how to reach you.</p>` : ''}
+        </div>
+        <article class="report">
+          <div class="r-head">
+            <div><h1>Handover pack</h1><div class="r-sub">${esc(p.name)}${p.address ? ' · ' + esc(p.address) : ''}</div></div>
+            <img src="./logo.jpg" alt="${esc(co.name)}" />
+          </div>
+          <table class="r-kv">
+            ${c.name ? `<tr><th>Prepared for</th><td>${esc(c.name)}</td></tr>` : ''}
+            ${p.builder ? `<tr><th>Builder</th><td>${esc(p.builder)}</td></tr>` : ''}
+            <tr><th>Site</th><td>${esc(p.address || '—')}</td></tr>
+            <tr><th>Job number</th><td>${esc(p.jobNo)}</td></tr>
+            <tr><th>Handover date</th><td>${fmtDate(date, true)}</td></tr>
+            <tr><th>Installed by</th><td>${esc(co.name)}${co.arctick ? ` · ARCtick ${esc(co.arctick)}` : ''}${co.plumbingLicence ? ` · Plumbing licence ${esc(co.plumbingLicence)}` : ''}</td></tr>
+            ${contact ? `<tr><th>Contact us</th><td>${contact}</td></tr>` : ''}
+          </table>
+
+          ${p.scope.overview.trim() ? `<h2>Your new system</h2><div class="r-notes">${esc(p.scope.overview)}</div>` : ''}
+          ${p.handover.notes.trim() ? `<h3>Notes from your installer</h3><div class="r-notes">${esc(p.handover.notes)}</div>` : ''}
+
+          <h2>Installed equipment</h2>
+          ${p.equipment.length ? `<table class="r-tbl">
+            <tr><th>Equipment</th><th>Serial no.</th><th>Location</th><th>Installed</th><th>Warranty until</th></tr>
+            ${p.equipment.map(e => `<tr><td><b>${esc(e.brandModel)}</b><div class="r-muted">${esc(e.type)}</div></td><td>${esc(e.serial) || '—'}</td><td>${esc(e.location) || '—'}</td>
+              <td>${fmtDate(e.installed, true) || '—'}</td><td>${e.warrantyEnd ? fmtDate(e.warrantyEnd, true) + (e.warrantyEnd < t ? ' (expired)' : '') : '—'}</td></tr>`).join('')}
+          </table>
+          <p class="r-muted" style="margin-top:6px">Keep this pack with your warranty documents — warranty claims need the model and serial numbers above.</p>`
+          : '<p class="r-muted">No equipment recorded.</p>'}
+
+          ${readings.length ? `<h2>Commissioning & test results</h2><table class="r-tbl">
+            <tr><th>Test / reading</th><th class="num">Result</th><th>Stage</th><th>Recorded</th></tr>
+            ${readings.map(r => `<tr><td>${esc(r.type)}${r.note ? `<div class="r-muted">${esc(r.note)}</div>` : ''}</td><td class="num"><b>${esc(r.value)}</b> ${esc(r.unit)}</td><td>${r.stage}</td><td class="r-muted">${fmtTime(r.at)}</td></tr>`).join('')}
+          </table>` : ''}
+
+          ${ui.hoPlans && p.plans.length ? p.plans.map(pl => `<h2>Layout — ${esc(pl.name)}</h2>${planSVG(pl)}<div>${planLegendHTML(pl)}</div>`).join('') : ''}
+
+          <h2>Work completed</h2>
+          <table class="r-tbl">
+            <tr><th>Stage</th><th>Dates</th><th>Signed off</th></tr>
+            ${STAGES.map(s => { const st = p.stages[s.key]; return `<tr><td>${s.label}</td><td>${dateRange(st.start, st.end)}</td><td>${st.signoff ? esc(st.signoff.name) + ', ' + fmtDate(st.signoff.date, true) : '—'}</td></tr>`; }).join('')}
+          </table>
+
+          ${ui.hoPhotos ? STAGES.filter(s => p.stages[s.key].photos.length).map(s => `<h3>${s.label} photos</h3>
+            <div class="r-photos">${p.stages[s.key].photos.map(ph => `<figure><img data-photo="${ph.id}" alt="" />${ph.caption ? `<figcaption>${esc(ph.caption)}</figcaption>` : ''}</figure>`).join('')}</div>`).join('') : ''}
+
+          <h2>Care & maintenance</h2>
+          ${careTipsFor(p).map(([title, tips]) => `<h3>${title}</h3><ul class="r-list">${tips.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`).join('')}
+          <p class="r-muted" style="margin-top:8px">General guidance only — always follow the manufacturer’s manual for your equipment.</p>
+
+          ${docs.length ? `<h2>Documents provided</h2><ul class="r-list">${docs.map(d => `<li>${esc(d.name)} <span class="r-muted">(${esc(d.category)})</span></li>`).join('')}</ul>` : ''}
+
+          <h2>Handover</h2>
+          <div class="r-sig">${fit.signoff
+            ? `Received by <b>${esc(fit.signoff.name)}</b> on ${fmtDate(fit.signoff.date, true)}${fit.signoff.sig ? `<img src="${fit.signoff.sig}" alt="Signature" />` : ''}`
+            : `<p class="r-muted" style="margin-bottom:8px">I have received this handover pack and been shown how to operate the system.</p>
+               <div class="r-muted">Name: ______________________________ &nbsp; Date: ____________</div><div class="r-sig-line"></div>`}</div>
+
+          <div class="r-foot">${esc(co.name)}${co.abn ? ' · ABN ' + esc(co.abn) : ''}${contact ? ' · ' + contact : ''} · ${esc(p.jobNo)}</div>
+        </article>`;
+    }
+
+    function companyCard() {
+      const co = state.settings.company;
+      const f = (k, label, ph = '', type = 'text') => `<div><label class="lbl">${label}</label><input type="${type}" value="${esc(co[k])}" placeholder="${esc(ph)}" onchange="state.settings.company.${k} = this.value.trim(); save(); toast('Saved')" /></div>`;
+      return `<section class="card">
+        <h2>Company details</h2>
+        <p class="muted" style="margin-bottom:14px">Shown on handover packs so customers know who installed their system and how to reach you.</p>
+        <div class="fgrid">
+          ${f('name', 'Business name')}
+          ${f('phone', 'Phone', 'e.g. 03 9000 0000', 'tel')}
+          ${f('email', 'Email', 'e.g. service@…', 'email')}
+          ${f('website', 'Website')}
+          ${f('abn', 'ABN')}
+          ${f('arctick', 'ARCtick authorisation no.', 'e.g. AU12345')}
+          ${f('plumbingLicence', 'Plumbing licence no.')}
+        </div>
+      </section>`;
     }
 
     /* ══════════ Scope of works ══════════ */
@@ -4303,17 +5246,30 @@
           : sub === 'report' ? reportView(p, key)
           : sub === 'order' ? (extra === 'print' ? orderPrintView(p, key) : orderView(p, key))
           : sub === 'scope' ? (key === 'print' ? scopePrintView(p) : scopeView(p, key === 'edit'))
+          : sub === 'plan' ? (extra === 'print' ? planPrintView(p, key) : planEditorView(p, key))
+          : sub === 'handover' ? handoverView(p)
           : projectView(p);
       } else html = notFound();
-      document.body.classList.toggle('report-mode', view === 'project' && (sub === 'report' || extra === 'print' || (sub === 'scope' && key === 'print')));
+      document.body.classList.toggle('report-mode', view === 'project' && (sub === 'report' || sub === 'handover' || extra === 'print' || (sub === 'scope' && key === 'print')));
 
       $('app').innerHTML = html;
       loadPhotos();
       if ($('sigpad')) initSig($('sigpad'));
+      if ($('plan-svg')) initPlanEditor(); else planCtx = null;
       showStorageUsed();
     }
 
-    window.addEventListener('hashchange', () => { closeModal(); render(); window.scrollTo(0, 0); });
+    window.addEventListener('hashchange', () => {
+      Object.assign(ui, { planSel: null, planDraw: null, planHover: null, planScalePts: [] });
+      closeModal(); render(); window.scrollTo(0, 0);
+    });
+
+    /* Plan editor keys: Escape cancels a run being drawn, Delete removes the selected symbol or run */
+    document.addEventListener('keydown', e => {
+      if (!planCtx || !$('modal').hidden || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) return;
+      if (e.key === 'Escape' && ui.planDraw) cancelRun();
+      if ((e.key === 'Delete' || e.key === 'Backspace') && ui.planSel) { e.preventDefault(); deletePlanSel(); }
+    });
 
     /* ══════════ Start ══════════ */
 
