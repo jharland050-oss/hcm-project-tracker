@@ -229,12 +229,27 @@
     /* ── Purchase order / form material rows ── */
     .mrow { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 0.7fr) minmax(0, 0.8fr) minmax(0, 1.2fr) auto auto; gap: 8px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line-dark); }
     .mrow:first-child { border-top: none; }
+
+    /* ── Scope of works rows ── */
+    .srow { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.1fr) minmax(0, 0.55fr) minmax(0, 0.6fr) minmax(0, 0.55fr) minmax(0, 1.45fr) auto; gap: 8px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line-dark); }
+    .srow:first-child { border-top: none; }
+    .srow input, .srow select { min-height: 42px; padding: 8px 12px; }
+    .srow select { padding-right: 34px; background-position: right 12px center; }
+    .srow .s-detail { grid-column: 1 / -2; }
+    .srow.by-other .s-title { color: var(--white-dim); }
+    .scope-stage { border-top: 5px solid; }
+    .scope-head-row { display: none; }
+    @media (min-width: 861px) {
+      .scope-head-row { display: grid; padding: 0 0 6px; border-top: none; font-size: 12px; color: var(--white-faint); }
+    }
     .mrow input, .mrow select { min-height: 42px; padding: 8px 12px; }
     .mrow select { padding-right: 34px; background-position: right 12px center; }
     .mrow .seg button { padding: 8px 10px; font-size: 13px; white-space: nowrap; }
     .mrow .seg button:disabled { cursor: default; }
     .section-note { color: var(--white-faint); font-size: 13px; margin: -8px 0 14px; }
     .r-break { break-before: page; }
+    .r-list { margin: 0 0 0 18px; }
+    .r-list li { padding: 2px 0; }
     .warn-box { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: rgba(226,86,30,0.14); color: #ffb08f; font-size: 14px; }
     .check { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
     .check-text { flex: 1; min-width: 0; }
@@ -400,6 +415,9 @@
       .plist { grid-template-columns: 1fr; }
       input, textarea, select { font-size: 16px !important; }
       .stat-num.money { font-size: 22px; }
+      .srow { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
+      .srow .s-title, .srow .s-detail, .srow .s-loc { grid-column: 1 / -1; }
+      .srow .s-by { grid-column: 1 / 4; }
       .mrow { grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1.4fr) auto; }
       .mrow .m-name { grid-column: 1 / -1; }
       .mrow select { grid-column: 3 / -1; }
@@ -1173,6 +1191,7 @@
       if (!s.settings.materialRules) s.settings.materialRules = DEFAULT_MATERIAL_RULES.map(r => ({ ...r }));
       s.projects.forEach(p => {
         ['materials', 'equipment', 'issues', 'docs', 'milestones', 'orders'].forEach(k => { p[k] = p[k] || []; });
+        p.scope = { overview: '', items: [], inclusions: '', exclusions: '', assumptions: '', status: 'Draft', version: 0, ...(p.scope || {}) };
         p.deadline = p.deadline || '';
         ['contractValue', 'quotedHours', 'materialsBudget'].forEach(k => { if (p[k] === undefined) p[k] = ''; });
       });
@@ -1397,7 +1416,7 @@
 
     const ui = {
       q: '', trade: '', status: 'open', calMonth: today().slice(0, 7), selDay: today(), calCrew: '',
-      schedView: 'month', tlFrom: mondayOf(today()), oType: '', oStatus: 'open',
+      schedView: 'month', tlFrom: mondayOf(today()), oType: '', oStatus: 'open', scopeHours: false,
       rTrade: '', rStatus: 'all', rFrom: addDays(today(), -30), rTo: today(),
       repPhotos: true, repTime: false
     };
@@ -1483,6 +1502,9 @@
           </div>
           ${p.notes ? `<div style="margin-top:16px;white-space:pre-wrap" class="muted">${esc(p.notes)}</div>` : ''}
         </section>
+
+        <h2 class="h-section">Scope of works <a class="btn btn-ghost btn-sm" href="#/project/${p.id}/scope">Open scope</a></h2>
+        <section class="card">${scopeSummary(p)}</section>
 
         <h2 class="h-section">Job costing</h2>
         <div class="stats">
@@ -2718,6 +2740,313 @@
         </section>`;
     }
 
+    /* ══════════ Scope of works ══════════ */
+
+    const SCOPE_BY = ['Heatcool Masters', 'Builder', 'Other trade', 'Customer'];
+    const SCOPE_STATUS = ['Draft', 'Issued', 'Accepted'];
+
+    const SCOPE_DEFAULTS = {
+      inclusions: 'Supply and installation of the equipment and materials described above\nCommissioning, testing and operating instructions at handover\nManufacturer warranty registration\nRemoval of our packaging and installation debris',
+      exclusions: 'Electrical work unless listed above\nStructural alterations, builder’s works and making good of plaster or paint\nAsbestos identification or removal\nAfter-hours or weekend work\nCouncil or authority fees unless listed above',
+      assumptions: 'Clear, safe access to the roof space, subfloor and work areas\nPower and water available on site\nWork carried out during normal business hours\nStages can proceed in sequence without delays from other trades'
+    };
+
+    /* Starting scope per trade: [stage, title, detail, qtyFrom, unit, by]. qtyFrom reads the latest preinspection. */
+    const SCOPE_TEMPLATES = {
+      HVAC: [
+        ['planning', 'Site measure and inspection', 'Confirm unit, outlet and condenser positions with the builder or customer', '', '', 0],
+        ['planning', 'Heat load calculation and system design', '', '', '', 0],
+        ['planning', 'Equipment selection and ordering', '', '', '', 0],
+        ['planning', 'Electrical requirements issued', 'Power circuit and isolator details provided to the electrician', '', '', 0],
+        ['roughin', 'Set out unit and outlet positions', '', '', '', 0],
+        ['roughin', 'Install refrigerant pipework', '', 'pipeRun', 'm', 0],
+        ['roughin', 'Install condensate drain', '', 'drainRun', 'm', 0],
+        ['roughin', 'Install ductwork and spigots', '', 'outlets', 'outlets', 0, 'duct'],
+        ['roughin', 'Run interconnecting and control cabling', '', 'cableRun', 'm', 0],
+        ['roughin', 'Nitrogen pressure test', 'Test recorded in the app', '', '', 0],
+        ['roughin', 'Seal penetrations and fit fire collars', '', '', '', 0],
+        ['roughin', 'Dedicated power circuit and isolator', 'By licensed electrician', '', '', 2],
+        ['roughin', 'Clear access to roof space and work areas', '', '', '', 1],
+        ['fitoff', 'Install indoor and outdoor units', '', '', '', 0],
+        ['fitoff', 'Evacuate, charge and commission system', 'Refrigerant charge recorded', '', '', 0],
+        ['fitoff', 'Fit grilles and diffusers', '', 'outlets', 'ea', 0, 'duct'],
+        ['fitoff', 'Install and set up controller', '', '', '', 0],
+        ['fitoff', 'Commissioning readings and customer handover', '', '', '', 0],
+        ['fitoff', 'Make good plaster and paint around outlets', '', '', '', 1],
+        ['fitoff', 'Site clean-up', '', '', '', 0]
+      ],
+      Plumbing: [
+        ['planning', 'Site inspection', 'Confirm water, gas and sewer connection points', '', '', 0],
+        ['planning', 'Confirm plans and fixture schedule', '', '', '', 0],
+        ['planning', 'Lodge notice of works and permits', '', '', '', 0],
+        ['planning', 'Order materials and fixtures', '', '', '', 0],
+        ['roughin', 'Sanitary drainage', '', '', '', 0],
+        ['roughin', 'Water supply pipework', '', 'pipeRun', 'm', 0],
+        ['roughin', 'Gas pipework (if applicable)', '', '', '', 0],
+        ['roughin', 'Pressure and drainage tests', 'Tests recorded in the app', '', '', 0],
+        ['roughin', 'Rough-in inspection', '', '', '', 0],
+        ['roughin', 'Frame set-out and nogging for fixtures', '', '', '', 1],
+        ['fitoff', 'Install fixtures and tapware', '', '', '', 0],
+        ['fitoff', 'Install and commission hot water unit', '', '', '', 0],
+        ['fitoff', 'Connect appliances', '', '', '', 0],
+        ['fitoff', 'Final leak check and compliance certificate', '', '', '', 0],
+        ['fitoff', 'Customer handover', '', '', '', 0],
+        ['fitoff', 'Waterproofing and tiling', '', '', '', 2]
+      ]
+    };
+
+    function scopeTemplate(p) {
+      const insp = latestInspection(p);
+      const d = insp ? insp.data : {};
+      const ducted = !d.unitType || ['Ducted Split', 'Gas Heater', 'Evap Cooler'].includes(d.unitType);
+      const rows = p.trade === 'HVAC + Plumbing' ? [...SCOPE_TEMPLATES.HVAC, ...SCOPE_TEMPLATES.Plumbing] : SCOPE_TEMPLATES[p.trade] || [];
+      const seen = new Set();
+      return rows.filter(([stage, title, , , , , only]) => {
+        if (only === 'duct' && !ducted) return false;
+        const key = stage + title;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).map(([stage, title, detail, qtyFrom, unit, by]) => ({
+        id: uid(), stage, title, detail,
+        location: '', qty: qtyFrom && d[qtyFrom] ? String(d[qtyFrom]) : '', unit: qtyFrom && d[qtyFrom] ? unit : '',
+        hours: '', by: SCOPE_BY[by]
+      }));
+    }
+
+    const scopeHours = (p, key) => p.scope.items
+      .filter(i => (!key || i.stage === key) && i.by === SCOPE_BY[0])
+      .reduce((n, i) => n + (parseFloat(i.hours) || 0), 0);
+
+    function scopeStatusTag(s) {
+      const cls = { Draft: 'tag-warn', Issued: '', Accepted: 'tag-good' }[s.status] || '';
+      return `<span class="tag ${cls}">${esc(s.status)}${s.version ? ' · v' + s.version : ''}</span>`;
+    }
+
+    function scopeSummary(p) {
+      const s = p.scope;
+      if (!s.items.length && !s.overview) {
+        return `${empty('No scope of works yet. Build one from the template, then adjust it for this job.')}
+          <button class="btn btn-sm" style="margin-top:10px" onclick="buildScope('${p.id}', true)">Build from template</button>`;
+      }
+      const h = scopeHours(p);
+      return `<div class="chips" style="margin-bottom:12px">${scopeStatusTag(s)}${s.accepted ? `<span class="tag">Accepted by ${esc(s.accepted.name)}, ${fmtDate(s.accepted.date, true)}</span>` : ''}</div>
+        <div class="info-grid">${STAGES.map(st => {
+          const items = s.items.filter(i => i.stage === st.key);
+          const hrs = scopeHours(p, st.key);
+          return `<div><div class="k"><span class="dot" style="background:${st.color};margin-right:6px"></span>${st.label}</div>
+            ${items.length} item${items.length === 1 ? '' : 's'}${hrs ? ` · ${fmtH(hrs)}` : ''}</div>`;
+        }).join('')}
+        <div><div class="k">Estimated labour</div>${h ? fmtH(h) : '—'}</div></div>`;
+    }
+
+    function buildScope(pid, go) {
+      const p = getP(pid);
+      const items = scopeTemplate(p);
+      if (p.scope.items.length && !confirm(`Replace the ${p.scope.items.length} scope item(s) with the ${p.trade} template?\n\nCancel = keep your items and add any template items that aren't there.`)) {
+        const have = new Set(p.scope.items.map(i => i.stage + i.title.toLowerCase()));
+        p.scope.items.push(...items.filter(i => !have.has(i.stage + i.title.toLowerCase())));
+      } else {
+        p.scope.items = items;
+      }
+      ['inclusions', 'exclusions', 'assumptions'].forEach(k => { if (!p.scope[k]) p.scope[k] = SCOPE_DEFAULTS[k]; });
+      if (!p.scope.overview) p.scope.overview = [p.trade + ' works', p.address ? 'at ' + p.address : '', p.notes ? '— ' + p.notes : ''].filter(Boolean).join(' ');
+      save();
+      if (go) location.hash = `#/project/${pid}/scope`; else render();
+      toast('Scope built from the template — adjust it for this job');
+    }
+
+    function setScope(pid, k, v, rerender) {
+      getP(pid).scope[k] = v;
+      save();
+      if (rerender) render();
+    }
+
+    function setScopeItem(pid, iid, k, v, rerender) {
+      getP(pid).scope.items.find(i => i.id === iid)[k] = v;
+      save();
+      if (rerender) render();
+    }
+
+    function addScopeItem(pid, stage) {
+      getP(pid).scope.items.push({ id: uid(), stage, title: '', detail: '', location: '', qty: '', unit: '', hours: '', by: SCOPE_BY[0] });
+      save(); render();
+      const titles = document.querySelectorAll(`[data-stage="${stage}"] .s-title`);
+      titles[titles.length - 1]?.focus();
+    }
+
+    function delScopeItem(pid, iid) {
+      const p = getP(pid);
+      p.scope.items = p.scope.items.filter(i => i.id !== iid);
+      save(); render();
+    }
+
+    /* Our scope items for a stage become checklist items (skipping ones already there) */
+    function scopeToChecklist(pid, key) {
+      const p = getP(pid), st = p.stages[key];
+      const have = new Set(st.checklist.map(c => c.text.trim().toLowerCase()));
+      const add = p.scope.items.filter(i => i.stage === key && i.by === SCOPE_BY[0] && i.title.trim() && !have.has(i.title.trim().toLowerCase()));
+      add.forEach(i => st.checklist.push({ id: uid(), text: i.title.trim(), done: false }));
+      save(); render();
+      toast(add.length ? `${add.length} item(s) added to the ${STAGES.find(s => s.key === key).label} checklist` : 'Checklist already has these items');
+    }
+
+    function scopeToEstimate(pid, key) {
+      const p = getP(pid);
+      p.stages[key].estHours = String(r2(scopeHours(p, key)));
+      save(); render();
+      toast(`${STAGES.find(s => s.key === key).label} estimate set to ${fmtH(scopeHours(p, key))}`);
+    }
+
+    function setScopeStatus(pid, status) {
+      const s = getP(pid).scope;
+      /* A new version only when a draft is issued — removing an acceptance doesn't change what was issued */
+      if (status === 'Issued' && s.status === 'Draft') { s.version = (s.version || 0) + 1; s.issued = today(); }
+      if (status !== 'Accepted') s.accepted = null;
+      s.status = status;
+      save(); render();
+    }
+
+    function saveScopeAcceptance(pid) {
+      const name = $('sig-name').value.trim();
+      const c = $('sigpad');
+      if (!name) { toast('Enter the name of the person accepting'); return; }
+      if (!c.dataset.ink) { toast('Please sign in the box'); return; }
+      const s = getP(pid).scope;
+      if (!s.version) { s.version = 1; s.issued = today(); }
+      s.accepted = { name, date: today(), sig: c.toDataURL('image/png') };
+      s.status = 'Accepted';
+      save(); render();
+      toast('Scope accepted');
+    }
+
+    function scopeView(p) {
+      const s = p.scope;
+      const P = `'${p.id}'`;
+      const textCard = (k, title, ph) => `<section class="card"><h2>${title}</h2>
+        <textarea placeholder="${esc(ph)}" oninput="setScope(${P},'${k}',this.value)">${esc(s[k])}</textarea>
+        ${!s[k] ? `<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="setScope(${P},'${k}',SCOPE_DEFAULTS.${k},true)">Use standard wording</button>` : ''}</section>`;
+
+      const stageCards = STAGES.map(st => {
+        const items = s.items.filter(i => i.stage === st.key);
+        const hrs = scopeHours(p, st.key);
+        const est = parseFloat(p.stages[st.key].estHours) || 0;
+        return `<section class="card scope-stage" style="border-top-color:${st.color}" data-stage="${st.key}">
+          <h2>${st.label} <span class="muted">${items.length} item${items.length === 1 ? '' : 's'}${hrs ? ' · ' + fmtH(hrs) : ''}</span></h2>
+          ${items.length ? `<div class="srow scope-head-row"><span>Item</span><span>Location</span><span>Qty</span><span>Unit</span><span>Hours</span><span>By</span><span></span></div>` : ''}
+          <div>${items.map(i => `<div class="srow ${i.by !== SCOPE_BY[0] ? 'by-other' : ''}">
+            <input class="s-title" value="${esc(i.title)}" placeholder="What’s being done" oninput="setScopeItem(${P},'${i.id}','title',this.value)" />
+            <input class="s-loc" value="${esc(i.location)}" placeholder="Location / area" oninput="setScopeItem(${P},'${i.id}','location',this.value)" />
+            <input type="number" inputmode="decimal" min="0" step="any" value="${esc(i.qty)}" placeholder="Qty" oninput="setScopeItem(${P},'${i.id}','qty',this.value)" />
+            <input value="${esc(i.unit)}" list="unit-list" placeholder="Unit" oninput="setScopeItem(${P},'${i.id}','unit',this.value)" />
+            <input type="number" inputmode="decimal" min="0" step="0.25" value="${esc(i.hours)}" placeholder="Hrs" ${i.by !== SCOPE_BY[0] ? 'disabled' : ''} oninput="setScopeItem(${P},'${i.id}','hours',this.value)" />
+            <select class="s-by" onchange="setScopeItem(${P},'${i.id}','by',this.value,true)">${SCOPE_BY.map(b => `<option ${i.by === b ? 'selected' : ''}>${b}</option>`).join('')}</select>
+            <button class="icon-btn" title="Remove" onclick="delScopeItem(${P},'${i.id}')">${ICON.x}</button>
+            <input class="s-detail" value="${esc(i.detail)}" placeholder="Details (optional)" oninput="setScopeItem(${P},'${i.id}','detail',this.value)" />
+          </div>`).join('') || empty('No items for this stage.')}</div>
+          <div class="btn-row" style="margin-top:14px">
+            <button class="btn btn-ghost btn-sm" onclick="addScopeItem(${P},'${st.key}')">${ICON.plus} Add item</button>
+            ${items.some(i => i.by === SCOPE_BY[0]) ? `<button class="btn btn-ghost btn-sm" onclick="scopeToChecklist(${P},'${st.key}')">Add to stage checklist</button>` : ''}
+            ${hrs && hrs !== est ? `<button class="btn btn-ghost btn-sm" onclick="scopeToEstimate(${P},'${st.key}')">Use ${fmtH(hrs)} as stage estimate${est ? ` (now ${fmtH(est)})` : ''}</button>` : ''}
+          </div>
+        </section>`;
+      }).join('');
+
+      return `
+        <a class="back" href="#/project/${p.id}">${ICON.back} ${esc(p.name)}</a>
+        <div class="page-head">
+          <div>
+            <div class="faint" style="margin-bottom:6px">${esc(p.jobNo)} · ${esc(p.trade)}${s.issued ? ' · issued ' + fmtDate(s.issued, true) : ''}</div>
+            <h1 class="page-title">Scope of works</h1>
+          </div>
+          <div class="btn-row">
+            ${scopeStatusTag(s)}
+            <button class="btn btn-ghost btn-sm" onclick="buildScope(${P})">Build from template</button>
+            <a class="btn btn-ghost btn-sm" href="#/project/${p.id}/scope/print">${ICON.print} Print / save PDF</a>
+          </div>
+        </div>
+        <datalist id="unit-list">${UNITS.map(u => `<option value="${u}"></option>`).join('')}<option value="outlets"></option></datalist>
+        <div class="stack">
+          <section class="card"><h2>Overview</h2>
+            <textarea placeholder="Brief description of the works, e.g. Supply and install a 14 kW ducted reverse-cycle system with 8 outlets…" oninput="setScope(${P},'overview',this.value)">${esc(s.overview)}</textarea>
+          </section>
+          ${stageCards}
+          ${textCard('inclusions', 'Inclusions', 'One per line')}
+          ${textCard('exclusions', 'Exclusions', 'One per line')}
+          ${textCard('assumptions', 'Assumptions & site requirements', 'One per line')}
+          <section class="card">
+            <h2>Status & acceptance</h2>
+            <div class="seg" style="margin-bottom:16px">${SCOPE_STATUS.filter(v => v !== 'Accepted').map(v => `<button class="${s.status === v ? 'on' : ''}" onclick="setScopeStatus(${P},'${v}')">${v === 'Issued' ? 'Issued to client' : v}</button>`).join('')}</div>
+            ${s.accepted ? `
+              <div>Accepted by <b>${esc(s.accepted.name)}</b> on ${fmtDate(s.accepted.date, true)} (version ${s.version})</div>
+              <img class="sig-img" src="${s.accepted.sig}" alt="Signature" />
+              <button class="btn btn-danger btn-sm" onclick="setScopeStatus(${P},'Issued')">Remove acceptance</button>`
+            : `<p class="muted" style="margin-bottom:12px">The builder or customer signs here to accept this scope. Each time it’s marked issued the version number goes up, so everyone knows which version was agreed.</p>
+              <label class="lbl">Name</label>
+              <input id="sig-name" placeholder="Full name" style="margin-bottom:12px" />
+              <label class="lbl">Signature</label>
+              <canvas class="sigpad" id="sigpad"></canvas>
+              <div class="btn-row" style="margin-top:12px">
+                <button class="btn" onclick="saveScopeAcceptance(${P})">Accept scope</button>
+                <button class="btn btn-ghost" onclick="initSig($('sigpad'))">Clear</button>
+              </div>`}
+          </section>
+        </div>`;
+    }
+
+    function scopePrintView(p) {
+      const s = p.scope;
+      const c = p.customer || {};
+      const lines = text => (text || '').split('\n').map(l => l.trim()).filter(Boolean);
+      const list = (title, text) => lines(text).length ? `<h2>${title}</h2><ul class="r-list">${lines(text).map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '';
+      return `
+        <div class="report-bar no-print">
+          <a class="back" href="#/project/${p.id}/scope">${ICON.back} Back</a>
+          <label class="toggle"><input type="checkbox" ${ui.scopeHours ? 'checked' : ''} onchange="ui.scopeHours = this.checked; render()" /> Show hours</label>
+          <button class="btn" onclick="window.print()">${ICON.print} Print / save PDF</button>
+        </div>
+        <article class="report">
+          <div class="r-head">
+            <div><h1>Scope of works</h1><div class="r-sub">${esc(p.jobNo)} · ${esc(p.name)}${s.version ? ' · version ' + s.version : ''}</div></div>
+            <img src="./logo.jpg" alt="Heatcool Masters" />
+          </div>
+          <table class="r-kv">
+            <tr><th>Site address</th><td>${esc(p.address) || '—'}</td></tr>
+            <tr><th>Customer</th><td>${[c.name, c.phone, c.email].filter(Boolean).map(esc).join(' · ') || '—'}</td></tr>
+            <tr><th>Builder / client</th><td>${esc(p.builder) || '—'}</td></tr>
+            <tr><th>Trade</th><td>${esc(p.trade)}</td></tr>
+            ${s.issued ? `<tr><th>Issued</th><td>${fmtDate(s.issued, true)}</td></tr>` : ''}
+            ${p.deadline ? `<tr><th>Target completion</th><td>${fmtDate(p.deadline, true)}</td></tr>` : ''}
+          </table>
+          ${s.overview ? `<h2>Overview</h2><div class="r-notes">${esc(s.overview)}</div>` : ''}
+          ${STAGES.map(st => {
+            const items = s.items.filter(i => i.stage === st.key && i.title.trim());
+            if (!items.length) return '';
+            const stage = p.stages[st.key];
+            return `<h2 style="border-left-color:${st.color}">${st.label}${stage.start ? ` <span>${dateRange(stage.start, stage.end)}</span>` : ''}</h2>
+              <table class="r-tbl">
+                <tr><th>Item</th><th>Location</th><th class="num">Qty</th>${ui.scopeHours ? '<th class="num">Hours</th>' : ''}<th>By</th></tr>
+                ${items.map(i => `<tr>
+                  <td><b>${esc(i.title)}</b>${i.detail ? `<div class="r-muted">${esc(i.detail)}</div>` : ''}</td>
+                  <td>${esc(i.location)}</td>
+                  <td class="num">${i.qty ? esc(i.qty) + ' ' + esc(i.unit) : ''}</td>
+                  ${ui.scopeHours ? `<td class="num">${i.hours ? esc(i.hours) : ''}</td>` : ''}
+                  <td>${esc(i.by)}</td>
+                </tr>`).join('')}
+              </table>`;
+          }).join('')}
+          ${list('Inclusions', s.inclusions)}
+          ${list('Exclusions', s.exclusions)}
+          ${list('Assumptions & site requirements', s.assumptions)}
+          <h2>Acceptance</h2>
+          <div class="r-sig">${s.accepted
+            ? `Accepted by <b>${esc(s.accepted.name)}</b> on ${fmtDate(s.accepted.date, true)}<img src="${s.accepted.sig}" alt="Signature" />`
+            : `<p class="r-muted" style="margin-bottom:8px">I accept the scope of works described above.</p>
+               <div class="r-muted">Name: ______________________________ &nbsp; Date: ____________</div><div class="r-sig-line"></div>`}</div>
+          <div class="r-foot">Heatcool Masters · ${esc(p.jobNo)} · Scope of works${s.version ? ' v' + s.version : ''} · Generated ${new Date().toLocaleString('en-AU')}</div>
+        </article>`;
+    }
+
     /* ══════════ Purchase orders & forms ══════════ */
 
     const FORM_TYPES = { electrical: 'Electrical PO', inspection: 'Preinspection', material: 'Material order' };
@@ -3896,9 +4225,10 @@
           : sub === 'stage' ? stageView(p, key)
           : sub === 'report' ? reportView(p, key)
           : sub === 'order' ? (extra === 'print' ? orderPrintView(p, key) : orderView(p, key))
+          : sub === 'scope' ? (key === 'print' ? scopePrintView(p) : scopeView(p))
           : projectView(p);
       } else html = notFound();
-      document.body.classList.toggle('report-mode', view === 'project' && (sub === 'report' || extra === 'print'));
+      document.body.classList.toggle('report-mode', view === 'project' && (sub === 'report' || extra === 'print' || (sub === 'scope' && key === 'print')));
 
       $('app').innerHTML = html;
       loadPhotos();
