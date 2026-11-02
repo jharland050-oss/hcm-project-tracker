@@ -238,6 +238,9 @@
     .srow .s-detail { grid-column: 1 / -2; }
     .srow.by-other .s-title { color: var(--white-dim); }
     .scope-stage { border-top: 5px solid; }
+    .s-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 14px; }
+    .s-list { margin: 0 0 0 20px; }
+    .s-list li { padding: 3px 0; color: var(--white); }
     .scope-head-row { display: none; }
     @media (min-width: 861px) {
       .scope-head-row { display: grid; padding: 0 0 6px; border-top: none; font-size: 12px; color: var(--white-faint); }
@@ -2852,7 +2855,7 @@
       ['inclusions', 'exclusions', 'assumptions'].forEach(k => { if (!p.scope[k]) p.scope[k] = SCOPE_DEFAULTS[k]; });
       if (!p.scope.overview) p.scope.overview = [p.trade + ' works', p.address ? 'at ' + p.address : '', p.notes ? '— ' + p.notes : ''].filter(Boolean).join(' ');
       save();
-      if (go) location.hash = `#/project/${pid}/scope`; else render();
+      if (go) location.hash = `#/project/${pid}/scope/edit`; else render();
       toast('Scope built from the template — adjust it for this job');
     }
 
@@ -2920,7 +2923,104 @@
       toast('Scope accepted');
     }
 
-    function scopeView(p) {
+    /* Editing an issued or accepted scope sends it back to draft, so the agreed version isn't silently changed */
+    function editScope(pid) {
+      const s = getP(pid).scope;
+      if (s.status !== 'Draft') {
+        const what = s.status === 'Accepted' ? `accepted by ${s.accepted?.name || 'the client'}` : 'issued to the client';
+        if (!confirm(`Version ${s.version} was ${what}.\n\nEditing sets it back to Draft${s.status === 'Accepted' ? ' and removes the acceptance' : ''}. Issue it again afterwards to create version ${(s.version || 0) + 1}.`)) return;
+        s.status = 'Draft';
+        s.accepted = null;
+        save();
+      }
+      location.hash = `#/project/${pid}/scope/edit`;
+    }
+
+    function scopeHeader(p, right) {
+      const s = p.scope;
+      return `
+        <a class="back" href="#/project/${p.id}">${ICON.back} ${esc(p.name)}</a>
+        <div class="page-head">
+          <div>
+            <div class="faint" style="margin-bottom:6px">${esc(p.jobNo)} · ${esc(p.trade)}${s.issued ? ' · issued ' + fmtDate(s.issued, true) : ''}</div>
+            <h1 class="page-title">Scope of works</h1>
+          </div>
+          <div class="btn-row" style="align-items:center">${right}</div>
+        </div>`;
+    }
+
+    function scopeReadView(p) {
+      const s = p.scope;
+      const P = `'${p.id}'`;
+      const lines = text => (text || '').split('\n').map(l => l.trim()).filter(Boolean);
+
+      if (!s.items.length && !s.overview.trim()) {
+        return scopeHeader(p, '') + `<section class="card">
+          ${empty('No scope of works yet. Build one from the template for this trade, or start with a blank scope.')}
+          <div class="btn-row" style="margin-top:12px">
+            <button class="btn" onclick="buildScope(${P}, true)">Build from template</button>
+            <a class="btn btn-ghost" href="#/project/${p.id}/scope/edit">Start blank</a>
+          </div>
+        </section>`;
+      }
+
+      const listCard = (title, text) => lines(text).length
+        ? `<section class="card"><h2>${title}</h2><ul class="s-list">${lines(text).map(l => `<li>${esc(l)}</li>`).join('')}</ul></section>` : '';
+
+      const stageCards = STAGES.map(st => {
+        const items = s.items.filter(i => i.stage === st.key && i.title.trim());
+        const hrs = scopeHours(p, st.key);
+        const stage = p.stages[st.key];
+        return `<section class="card scope-stage" style="border-top-color:${st.color}">
+          <h2>${st.label} <span class="muted">${stage.start ? dateRange(stage.start, stage.end) + ' · ' : ''}${items.length} item${items.length === 1 ? '' : 's'}${hrs ? ' · ' + fmtH(hrs) : ''}</span></h2>
+          <div class="rows">${items.map(i => `<div class="brow">
+            <div class="brow-main">
+              <div class="brow-title" ${i.by !== SCOPE_BY[0] ? 'style="color:var(--white-dim)"' : ''}>${esc(i.title)}</div>
+              ${i.detail ? `<div class="muted">${esc(i.detail)}</div>` : ''}
+              ${i.location ? `<div class="faint">${esc(i.location)}</div>` : ''}
+            </div>
+            <div class="brow-side s-side">
+              ${i.qty || (i.hours && i.by === SCOPE_BY[0]) ? `<div>${[
+                i.qty ? esc(i.qty) + ' ' + esc(i.unit) : '',
+                i.hours && i.by === SCOPE_BY[0] ? `<span class="faint">${fmtH(parseFloat(i.hours) || 0)}</span>` : ''
+              ].filter(Boolean).join(' · ')}</div>` : ''}
+              ${i.by !== SCOPE_BY[0] ? `<span class="tag tag-warn">By ${esc(i.by.toLowerCase())}</span>` : ''}
+            </div>
+          </div>`).join('') || empty('Nothing in this stage.')}</div>
+        </section>`;
+      }).join('');
+
+      return scopeHeader(p, `${scopeStatusTag(s)}
+          <a class="btn btn-ghost btn-sm" href="#/project/${p.id}/scope/print">${ICON.print} Print</a>
+          <button class="btn btn-sm" onclick="editScope(${P})">${ICON.edit} Edit</button>`) + `
+        <div class="stack">
+          ${s.overview.trim() ? `<section class="card"><h2>Overview</h2><p style="white-space:pre-wrap">${esc(s.overview)}</p></section>` : ''}
+          ${stageCards}
+          ${listCard('Inclusions', s.inclusions)}
+          ${listCard('Exclusions', s.exclusions)}
+          ${listCard('Assumptions & site requirements', s.assumptions)}
+          <section class="card">
+            <h2>Status & acceptance</h2>
+            ${s.accepted ? `
+              <div>Accepted by <b>${esc(s.accepted.name)}</b> on ${fmtDate(s.accepted.date, true)} (version ${s.version})</div>
+              <img class="sig-img" src="${s.accepted.sig}" alt="Signature" />
+              <button class="btn btn-danger btn-sm" onclick="setScopeStatus(${P},'Issued')">Remove acceptance</button>`
+            : `<div class="seg" style="margin-bottom:16px">${['Draft', 'Issued'].map(v => `<button class="${s.status === v ? 'on' : ''}" onclick="setScopeStatus(${P},'${v}')">${v === 'Issued' ? 'Issued to client' : v}</button>`).join('')}</div>
+              <p class="muted" style="margin-bottom:12px">The builder or customer signs here to accept this scope. Each time a draft is issued the version number goes up, so everyone knows which version was agreed.</p>
+              <label class="lbl">Name</label>
+              <input id="sig-name" placeholder="Full name" style="margin-bottom:12px" />
+              <label class="lbl">Signature</label>
+              <canvas class="sigpad" id="sigpad"></canvas>
+              <div class="btn-row" style="margin-top:12px">
+                <button class="btn" onclick="saveScopeAcceptance(${P})">Accept scope</button>
+                <button class="btn btn-ghost" onclick="initSig($('sigpad'))">Clear</button>
+              </div>`}
+          </section>
+        </div>`;
+    }
+
+    function scopeView(p, editing) {
+      if (!editing) return scopeReadView(p);
       const s = p.scope;
       const P = `'${p.id}'`;
       const textCard = (k, title, ph) => `<section class="card"><h2>${title}</h2>
@@ -2952,19 +3052,10 @@
         </section>`;
       }).join('');
 
-      return `
-        <a class="back" href="#/project/${p.id}">${ICON.back} ${esc(p.name)}</a>
-        <div class="page-head">
-          <div>
-            <div class="faint" style="margin-bottom:6px">${esc(p.jobNo)} · ${esc(p.trade)}${s.issued ? ' · issued ' + fmtDate(s.issued, true) : ''}</div>
-            <h1 class="page-title">Scope of works</h1>
-          </div>
-          <div class="btn-row">
-            ${scopeStatusTag(s)}
+      return scopeHeader(p, `
+            <span class="faint">Editing · saved as you type</span>
             <button class="btn btn-ghost btn-sm" onclick="buildScope(${P})">Build from template</button>
-            <a class="btn btn-ghost btn-sm" href="#/project/${p.id}/scope/print">${ICON.print} Print / save PDF</a>
-          </div>
-        </div>
+            <a class="btn btn-sm" href="#/project/${p.id}/scope">Done</a>`) + `
         <datalist id="unit-list">${UNITS.map(u => `<option value="${u}"></option>`).join('')}<option value="outlets"></option></datalist>
         <div class="stack">
           <section class="card"><h2>Overview</h2>
@@ -2974,23 +3065,9 @@
           ${textCard('inclusions', 'Inclusions', 'One per line')}
           ${textCard('exclusions', 'Exclusions', 'One per line')}
           ${textCard('assumptions', 'Assumptions & site requirements', 'One per line')}
-          <section class="card">
-            <h2>Status & acceptance</h2>
-            <div class="seg" style="margin-bottom:16px">${SCOPE_STATUS.filter(v => v !== 'Accepted').map(v => `<button class="${s.status === v ? 'on' : ''}" onclick="setScopeStatus(${P},'${v}')">${v === 'Issued' ? 'Issued to client' : v}</button>`).join('')}</div>
-            ${s.accepted ? `
-              <div>Accepted by <b>${esc(s.accepted.name)}</b> on ${fmtDate(s.accepted.date, true)} (version ${s.version})</div>
-              <img class="sig-img" src="${s.accepted.sig}" alt="Signature" />
-              <button class="btn btn-danger btn-sm" onclick="setScopeStatus(${P},'Issued')">Remove acceptance</button>`
-            : `<p class="muted" style="margin-bottom:12px">The builder or customer signs here to accept this scope. Each time it’s marked issued the version number goes up, so everyone knows which version was agreed.</p>
-              <label class="lbl">Name</label>
-              <input id="sig-name" placeholder="Full name" style="margin-bottom:12px" />
-              <label class="lbl">Signature</label>
-              <canvas class="sigpad" id="sigpad"></canvas>
-              <div class="btn-row" style="margin-top:12px">
-                <button class="btn" onclick="saveScopeAcceptance(${P})">Accept scope</button>
-                <button class="btn btn-ghost" onclick="initSig($('sigpad'))">Clear</button>
-              </div>`}
-          </section>
+        </div>
+        <div class="modal-actions" style="margin-top:20px">
+          <a class="btn" href="#/project/${p.id}/scope">Done</a>
         </div>`;
     }
 
@@ -4225,7 +4302,7 @@
           : sub === 'stage' ? stageView(p, key)
           : sub === 'report' ? reportView(p, key)
           : sub === 'order' ? (extra === 'print' ? orderPrintView(p, key) : orderView(p, key))
-          : sub === 'scope' ? (key === 'print' ? scopePrintView(p) : scopeView(p))
+          : sub === 'scope' ? (key === 'print' ? scopePrintView(p) : scopeView(p, key === 'edit'))
           : projectView(p);
       } else html = notFound();
       document.body.classList.toggle('report-mode', view === 'project' && (sub === 'report' || extra === 'print' || (sub === 'scope' && key === 'print')));
