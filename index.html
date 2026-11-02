@@ -1,0 +1,3139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>HCM Projects</title>
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="HCM Projects" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #000;
+      --card:      #161616;
+      --card-2:    #1f1f1f;
+      --field:     #262626;
+      --white:     #fff;
+      --white-dim: rgba(255,255,255,0.55);
+      --white-faint: rgba(255,255,255,0.35);
+      --line-dark: rgba(255,255,255,0.14);
+
+      /* Logo palette: orange gradient, cyan blue, silver */
+      --c-orange:  #f07a1c;
+      --c-cyan:    #1aaee6;
+      --c-amber:   #f6a332;
+      --c-silver:  #c4c7cb;
+      --c-red:     #e2561e;
+      --c-green:   #3fbf7f;
+
+      --radius-card: 28px;
+      --font: 'Outfit', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+
+    html { background: var(--bg); }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--white);
+      min-height: 100vh;
+      padding: calc(env(safe-area-inset-top, 0px) + 20px) 16px calc(env(safe-area-inset-bottom, 0px) + 40px);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.4;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; border: none; cursor: pointer; background: none; color: inherit; transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s; }
+
+    .page { width: 100%; max-width: 1100px; margin: 0 auto; }
+
+    /* ── Header ── */
+    .header-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; }
+    .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .brand-logo { height: 40px; width: auto; border-radius: 10px; display: block; }
+    .brand-name { font-size: 15px; color: var(--white-dim); white-space: nowrap; }
+
+    /* ── Tabs (pill nav) ── */
+    .tabs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 24px; padding: 0 16px 4px; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      flex-shrink: 0; padding: 11px 20px; border-radius: 999px;
+      border: 1.5px solid var(--line-dark); color: var(--white-dim); font-size: 16px;
+    }
+    .tab:hover { color: var(--white); border-color: rgba(255,255,255,0.4); }
+    .tab.active { border-color: var(--white); color: var(--white); font-weight: 500; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      min-height: 44px; padding: 10px 20px; border-radius: 999px;
+      background: var(--white); color: #000; font-size: 15px; font-weight: 500; white-space: nowrap;
+    }
+    .btn:hover { background: #e6e6e6; }
+    .btn-ghost { background: transparent; color: var(--white); border: 1.5px solid var(--line-dark); }
+    .btn-ghost:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.4); }
+    .btn-danger { background: transparent; color: #ff7a5c; border: 1.5px solid rgba(255,122,92,0.4); }
+    .btn-danger:hover { background: rgba(255,122,92,0.1); }
+    .btn-sm { min-height: 36px; padding: 6px 14px; font-size: 14px; }
+    .icon-btn { width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: var(--white-dim); flex-shrink: 0; }
+    .icon-btn:hover { background: rgba(255,255,255,0.08); color: var(--white); }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
+
+    /* ── Cards & layout ── */
+    .card { background: var(--card); border-radius: var(--radius-card); padding: 22px; }
+    .card + .card, .stack > * + * { margin-top: 12px; }
+    .card h2, .h-section { font-size: 18px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .h-section { margin: 28px 4px 12px; }
+    .page-title { font-size: clamp(28px, 6vw, 40px); font-weight: 500; letter-spacing: -0.01em; line-height: 1.1; }
+    .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid2 > .card + .card { margin-top: 0; }
+    .grid2 > *, .kanban > *, .stage-cards > *, .plist > * { min-width: 0; }
+    .muted { color: var(--white-dim); font-size: 14px; }
+    .faint { color: var(--white-faint); font-size: 13px; }
+    .empty { color: var(--white-faint); font-size: 14px; padding: 6px 0; }
+    .back { display: inline-flex; align-items: center; gap: 6px; color: var(--white-dim); font-size: 15px; margin-bottom: 12px; }
+    .back:hover { color: var(--white); }
+
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .tag { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; background: rgba(255,255,255,0.08); color: var(--white-dim); white-space: nowrap; }
+    .tag-warn { background: rgba(246,163,50,0.16); color: var(--c-amber); }
+    .tag-bad  { background: rgba(226,86,30,0.18); color: #ff8a5c; }
+    .tag-good { background: rgba(63,191,127,0.16); color: var(--c-green); }
+
+    /* ── Stats ── */
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
+    .stat { background: var(--card); border-radius: 22px; padding: 18px 20px; }
+    .stat-num { font-size: 36px; font-weight: 600; line-height: 1; }
+    .stat-label { color: var(--white-dim); font-size: 14px; margin-top: 8px; }
+
+    /* ── Lists ── */
+    .rows > * { border-top: 1px solid var(--line-dark); }
+    .rows > *:first-child { border-top: none; }
+    .brow { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; }
+    .brow .dot { margin-top: 6px; }
+    a.brow:hover .brow-title { text-decoration: underline; }
+    .brow-title { font-weight: 500; }
+    .brow-main { flex: 1; min-width: 0; }
+    .brow-side { text-align: right; flex-shrink: 0; }
+
+    /* ── Project cards ── */
+    .pcard { display: block; background: var(--card-2); border-radius: 20px; padding: 16px; border: 1.5px solid transparent; }
+    .pcard:hover { border-color: rgba(255,255,255,0.25); }
+    .pcard + .pcard { margin-top: 10px; }
+    .pcard-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .pcard-name { font-size: 17px; font-weight: 600; }
+    .pcard-addr { color: var(--white-dim); font-size: 14px; margin-bottom: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pcard-meta { display: flex; justify-content: space-between; gap: 8px; color: var(--white-dim); font-size: 13px; margin-top: 10px; }
+    .plist { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+    .plist .pcard + .pcard { margin-top: 0; }
+    .plist .pcard { background: var(--card); }
+
+    .stagebar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+    .stagebar span { height: 6px; border-radius: 3px; background: #333; }
+    .stagebar-labels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; font-size: 11px; color: var(--white-faint); margin-top: 4px; }
+
+    .kanban { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .kcol { background: var(--card); border-radius: var(--radius-card); padding: 16px; }
+    .kcol-head { display: flex; align-items: center; gap: 10px; font-weight: 600; margin: 2px 4px 14px; }
+    .kcol-head .count { margin-left: auto; color: var(--white-faint); font-weight: 400; }
+
+    .progress { height: 6px; background: #333; border-radius: 3px; overflow: hidden; }
+    .progress > i { display: block; height: 100%; border-radius: 3px; }
+
+    /* ── Filters ── */
+    .filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .filters input { flex: 1 1 220px; }
+    .filters select { flex: 0 1 180px; }
+
+    /* ── Form fields ── */
+    input, select, textarea {
+      width: 100%; min-height: 46px; padding: 10px 16px; border: 1.5px solid transparent; border-radius: 14px;
+      font-family: inherit; font-size: 16px; color: var(--white); background: var(--field); color-scheme: dark; outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--white); }
+    input::placeholder, textarea::placeholder { color: var(--white-faint); }
+    textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
+    input[type="date"] { -webkit-appearance: none; appearance: none; display: block; min-width: 0; }
+    input[type="checkbox"] { width: 22px; height: 22px; min-height: 0; accent-color: var(--c-green); flex-shrink: 0; cursor: pointer; }
+    label.lbl { display: block; font-size: 13px; font-weight: 500; color: var(--white-dim); margin: 0 0 6px 4px; }
+    .fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .fgrid > * { min-width: 0; }
+    .fwide { grid-column: 1 / -1; }
+    .inline-form { display: grid; gap: 10px; grid-template-columns: 2fr 1fr 1fr; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line-dark); }
+    .inline-form > * { min-width: 0; }
+    .inline-form .fwide { grid-column: 1 / -1; }
+
+    /* ── Stage view ── */
+    .stage-switch { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .seg { display: inline-flex; background: var(--field); border-radius: 999px; padding: 4px; gap: 4px; flex-wrap: wrap; }
+    .seg button { padding: 8px 16px; border-radius: 999px; font-size: 14px; color: var(--white-dim); }
+    .seg button.on { background: var(--white); color: #000; font-weight: 500; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip { padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--line-dark); font-size: 14px; color: var(--white-dim); }
+    .chip.on { border-color: var(--c-cyan); color: var(--white); background: rgba(26,174,230,0.15); }
+    .warn-box { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: rgba(226,86,30,0.14); color: #ffb08f; font-size: 14px; }
+    .check { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+    .check-text { flex: 1; min-width: 0; }
+    .check.done .check-text { color: var(--white-faint); text-decoration: line-through; }
+    .add-row { display: flex; gap: 8px; margin-top: 12px; }
+
+    .stage-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .stage-card { display: block; border-radius: var(--radius-card); padding: 20px; background: var(--card); border-top: 5px solid; }
+    .stage-card:hover { background: #1c1c1c; }
+    .stage-card h3 { font-size: 20px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .stage-card .kv { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; padding: 4px 0; }
+    .stage-card .kv span:first-child { color: var(--white-dim); }
+
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .info-grid .k { font-size: 13px; color: var(--white-dim); margin-bottom: 2px; }
+    .info-grid a { color: var(--c-cyan); }
+
+    .photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+    .photos button { aspect-ratio: 1; border-radius: 14px; overflow: hidden; background: var(--field); }
+    .photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .sigpad { width: 100%; height: 160px; background: #fff; border-radius: 14px; touch-action: none; display: block; }
+    .sig-img { background: #fff; border-radius: 14px; max-width: 360px; width: 100%; display: block; margin: 10px 0; }
+
+    table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .tbl th { text-align: left; font-weight: 500; color: var(--white-dim); padding: 8px 6px; border-bottom: 1px solid var(--line-dark); }
+    .tbl td { padding: 10px 6px; border-bottom: 1px solid var(--line-dark); vertical-align: top; }
+    .tbl tr:last-child td { border-bottom: none; }
+    .tbl .num { text-align: right; white-space: nowrap; }
+    .tbl tr.click { cursor: pointer; }
+    .tbl tr.click:hover td { background: rgba(255,255,255,0.03); }
+    .tbl-wrap { overflow-x: auto; margin: 0 -6px; }
+
+    /* ── Calendar ── */
+    .cal-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .cal-head .month { font-size: 20px; font-weight: 600; min-width: 170px; }
+    .cal-head select { width: auto; margin-left: auto; }
+    .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-dow { font-size: 12px; color: var(--white-faint); text-align: center; padding: 4px 0; }
+    .cal-day { min-height: 96px; background: var(--card-2); border-radius: 12px; padding: 6px; text-align: left; display: flex; flex-direction: column; gap: 3px; border: 1.5px solid transparent; min-width: 0; }
+    .cal-day:hover { border-color: rgba(255,255,255,0.25); }
+    .cal-day.other { opacity: 0.35; }
+    .cal-day.today .dnum { background: var(--white); color: #000; }
+    .cal-day.sel { border-color: var(--white); }
+    .dnum { font-size: 13px; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+    .cal-chip { font-size: 11px; padding: 2px 6px; border-radius: 6px; color: #000; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cal-more { font-size: 11px; color: var(--white-dim); padding-left: 4px; }
+    .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; font-size: 13px; color: var(--white-dim); }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+    /* ── Modal ── */
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: flex-start; justify-content: center; padding: calc(env(safe-area-inset-top, 0px) + 24px) 16px 24px; overflow-y: auto; z-index: 50; }
+    .modal[hidden] { display: none; }
+    .modal-card { background: var(--card); border: 1px solid var(--line-dark); border-radius: var(--radius-card); padding: 24px; width: 100%; max-width: 620px; }
+    .modal-card h3 { font-size: 22px; font-weight: 600; margin-bottom: 18px; }
+    .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+    .modal-actions .spacer { flex: 1; }
+    .lightbox img { width: 100%; border-radius: 16px; display: block; background: var(--field); min-height: 120px; }
+
+    .toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); transform: translateX(-50%); background: var(--white); color: #000; padding: 12px 20px; border-radius: 999px; font-size: 15px; font-weight: 500; z-index: 60; box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
+    .toast[hidden] { display: none; }
+
+    .welcome { text-align: center; padding: 48px 22px; }
+    .welcome h2 { justify-content: center; font-size: 24px; }
+    .welcome p { color: var(--white-dim); max-width: 460px; margin: 0 auto 22px; }
+    .welcome .btn-row { justify-content: center; }
+
+    /* ── Costing & reports ── */
+    .h-section { flex-wrap: wrap; }
+    .stat-num.money { font-size: 28px; }
+    .stat-sub { font-size: 13px; color: var(--white-faint); margin-top: 4px; }
+    .over, .neg { color: #ff8a5c !important; }
+    .tbl tr.tot td { font-weight: 600; border-top: 1.5px solid rgba(255,255,255,0.3); }
+    .range { display: flex; gap: 8px; align-items: center; font-size: 14px; font-weight: 400; color: var(--white-dim); }
+    .range input { width: auto; min-height: 38px; padding: 6px 12px; font-size: 14px; }
+    .doc-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--field); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--white-dim); }
+
+    /* ── Timeline (Gantt) ── */
+    .gantt { overflow-x: auto; margin: 0 -6px; padding: 0 6px; }
+    .g-row { display: grid; grid-template-columns: 180px 1fr; border-top: 1px solid var(--line-dark); }
+    .g-head { border-top: none; }
+    .g-label { padding: 8px 10px 8px 0; font-size: 14px; position: sticky; left: 0; background: var(--card); z-index: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .g-label a:hover { text-decoration: underline; }
+    .g-track { position: relative; min-height: 44px; }
+    .g-head .g-track { min-height: 24px; }
+    .g-tick { position: absolute; top: 4px; font-size: 11px; color: var(--white-faint); white-space: nowrap; padding-left: 3px; }
+    .g-line { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.07); }
+    .g-today { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,0.55); z-index: 1; }
+    .g-dl { position: absolute; top: 4px; bottom: 4px; width: 3px; margin-left: -2px; border-radius: 2px; background: var(--c-red); z-index: 2; }
+    .g-bar { position: absolute; top: 50%; height: 16px; margin-top: -8px; border-radius: 5px; min-width: 4px; }
+    .g-mark { position: absolute; top: 50%; width: 11px; height: 11px; margin: -6px 0 0 -6px; transform: rotate(45deg); z-index: 2; border: 1.5px solid var(--card); border-radius: 2px; }
+    .ms-key { width: 10px; height: 10px; transform: rotate(45deg); border-radius: 2px; display: inline-block; background: var(--white); }
+    .ok-box { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: rgba(63,191,127,0.14); color: #8fe0b5; font-size: 14px; }
+    .tl-stage { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line-dark); }
+    .tl-name { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-bottom: 8px; }
+    .tl-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .tl-grid > * { min-width: 0; }
+    .tl-grid input { padding: 10px; }
+    .cal-mark { background: transparent !important; border: 1px solid; }
+    .chips .tag { white-space: normal; }
+    .cal-day.hol { background: #221c12; }
+    .cal-hol { font-size: 10px; line-height: 1.2; color: var(--c-amber); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Sign-in & sync ── */
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+    #sync-pill { cursor: pointer; border: none; font-family: inherit; }
+    #sync-pill[hidden] { display: none; }
+    body.signed-out .tabs, body.signed-out .header-actions { display: none; }
+    .login { max-width: 420px; margin: 40px auto; }
+
+    /* ── Printable report ── */
+    body.report-mode .page > header { display: none; }
+    .report-bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; max-width: 820px; margin: 0 auto 16px; }
+    .report-bar .back { margin: 0 auto 0 0; }
+    .toggle { display: inline-flex; gap: 8px; align-items: center; color: var(--white-dim); font-size: 15px; cursor: pointer; }
+    .report { background: #fff; color: #1a1a1a; border-radius: 16px; padding: 40px; max-width: 820px; margin: 0 auto; font-size: 14px; }
+    .report h1 { font-size: 24px; font-weight: 600; line-height: 1.2; }
+    .report h2 { font-size: 18px; font-weight: 600; margin: 30px 0 10px; padding-left: 10px; border-left: 4px solid #1a1a1a; display: flex; justify-content: space-between; gap: 10px; }
+    .report h2 span { font-size: 13px; font-weight: 500; color: #666; }
+    .report h3 { font-size: 12px; font-weight: 600; margin: 18px 0 6px; color: #555; text-transform: uppercase; letter-spacing: 0.05em; }
+    .r-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding-bottom: 18px; border-bottom: 2px solid #1a1a1a; margin-bottom: 18px; }
+    .r-head img { height: 52px; }
+    .r-sub { color: #666; margin-top: 4px; }
+    .r-kv, .r-tbl { width: 100%; border-collapse: collapse; }
+    .r-kv th { text-align: left; width: 28%; color: #666; font-weight: 500; padding: 4px 0; vertical-align: top; }
+    .r-kv td { padding: 4px 0; }
+    .r-tbl th { text-align: left; font-weight: 600; border-bottom: 1.5px solid #bbb; padding: 6px 4px; font-size: 12px; color: #444; }
+    .r-tbl td { border-bottom: 1px solid #e5e5e5; padding: 6px 4px; vertical-align: top; }
+    .r-tbl .num { text-align: right; white-space: nowrap; }
+    .r-tick { width: 26px; font-weight: 700; }
+    .r-muted { color: #777; font-size: 12px; }
+    .r-notes { white-space: pre-wrap; background: #f6f6f6; border-radius: 8px; padding: 10px 12px; }
+    .r-photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .r-photos figure { break-inside: avoid; }
+    .r-photos img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; display: block; background: #eee; }
+    .r-photos figcaption { font-size: 11px; color: #666; margin-top: 3px; }
+    .r-sig img { max-width: 260px; display: block; border-bottom: 1px solid #999; margin-top: 6px; }
+    .r-sig-line { height: 56px; border-bottom: 1px solid #999; width: 280px; }
+    .r-foot { margin-top: 32px; padding-top: 12px; border-top: 1px solid #ddd; color: #888; font-size: 11px; }
+
+    @media print {
+      @page { margin: 14mm; }
+      html, body { background: #fff !important; padding: 0 !important; }
+      .no-print, .page > header, .toast, .modal { display: none !important; }
+      .report { padding: 0; border-radius: 0; max-width: none; }
+      .report h2, .report h3 { break-after: avoid; }
+      tr { break-inside: avoid; }
+    }
+
+    @media (max-width: 860px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .grid2, .kanban, .stage-cards { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      .brand-name { display: none; }
+      .card { padding: 18px; border-radius: 22px; }
+      .fgrid { grid-template-columns: 1fr; }
+      .inline-form { grid-template-columns: 1fr 1fr; }
+      .inline-form > :first-child { grid-column: 1 / -1; }
+      .cal-day { min-height: 58px; padding: 4px; }
+      .cal-chip { font-size: 0; padding: 0; height: 6px; border-radius: 3px; }
+      .cal-more { font-size: 10px; padding: 0; }
+      .plist { grid-template-columns: 1fr; }
+      input, textarea, select { font-size: 16px !important; }
+      .stat-num.money { font-size: 22px; }
+      .g-row { grid-template-columns: 120px 1fr; }
+      .cal-mark { background: currentColor !important; border: none; }
+      .report { padding: 20px; }
+      .r-photos { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div class="header-top">
+        <a class="brand" href="#/">
+          <img class="brand-logo" src="./logo.jpg" alt="Heatcool Masters" />
+          <span class="brand-name">Project Tracker</span>
+        </a>
+        <div class="header-actions">
+          <button class="tag" id="sync-pill" hidden onclick="syncNow()" title="Tap to sync now"></button>
+          <button class="btn" onclick="newProject()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            New project
+          </button>
+        </div>
+      </div>
+      <nav class="tabs" id="tabs">
+        <a class="tab" data-tab="" href="#/">Dashboard</a>
+        <a class="tab" data-tab="projects" href="#/projects">Projects</a>
+        <a class="tab" data-tab="schedule" href="#/schedule">Schedule</a>
+        <a class="tab" data-tab="crew" href="#/crew">Crew</a>
+        <a class="tab" data-tab="reports" href="#/reports">Reports</a>
+        <a class="tab" data-tab="settings" href="#/settings">Settings</a>
+      </nav>
+    </header>
+    <main id="app"></main>
+  </div>
+
+  <div class="modal" id="modal" hidden onclick="if (event.target === this) closeModal()">
+    <div class="modal-card" id="modal-card"></div>
+  </div>
+  <div class="toast" id="toast" hidden></div>
+
+  <script>
+    /* ══════════ Constants ══════════ */
+
+    const STAGES = [
+      { key: 'planning', label: 'Planning', color: '#1aaee6' },
+      { key: 'roughin',  label: 'Rough-in', color: '#f6a332' },
+      { key: 'fitoff',   label: 'Fit-off',  color: '#f07a1c' }
+    ];
+    const STAGE_STATUS = ['Not started', 'In progress', 'Complete'];
+    const TRADES = ['HVAC', 'Plumbing', 'HVAC + Plumbing'];
+    const PROJECT_STATUS = ['Active', 'On hold', 'Complete'];
+    const UNITS = ['ea', 'm', 'kg', 'L', 'box', 'roll', 'pack', 'set', 'hr'];
+    const CREW_ROLES = ['Technician', 'Plumber', 'Apprentice', 'Supervisor', 'Office', 'Subcontractor'];
+    const DEFECT_STATUS = ['Open', 'In progress', 'Fixed'];
+    const VARIATION_STATUS = ['Pending', 'Approved', 'Rejected', 'Completed'];
+    const DOC_CATS = ['Plans', 'Permit / approval', 'Compliance certificate', 'Quote', 'Purchase order', 'Invoice', 'Warranty / manual', 'Other'];
+    const EQUIP_TYPES = ['Ducted unit', 'Split system (indoor)', 'Split system (outdoor)', 'Multi-head system', 'Fan coil unit', 'Gas heater', 'Evaporative cooler', 'Hot water unit', 'Pump', 'Exhaust fan', 'Other'];
+
+    const READINGS = {
+      'Suction pressure': 'kPa',
+      'Discharge pressure': 'kPa',
+      'Superheat': 'K',
+      'Subcooling': 'K',
+      'Supply air temp': '°C',
+      'Return air temp': '°C',
+      'Ambient temp': '°C',
+      'Airflow': 'L/s',
+      'Vacuum': 'microns',
+      'Nitrogen pressure test': 'kPa',
+      'Refrigerant charge added': 'kg',
+      'Refrigerant recovered': 'kg',
+      'Water pressure test': 'kPa',
+      'Gas pressure test': 'kPa',
+      'Drainage test': 'pass/fail',
+      'Hot water outlet temp': '°C',
+      'Other': ''
+    };
+
+    const CHECKLISTS = {
+      HVAC: {
+        planning: [
+          'Site inspection completed',
+          'Heat load calculation done',
+          'Plans / layout confirmed with builder or customer',
+          'Equipment selected and ordered',
+          'Duct and pipe runs drawn',
+          'Electrical PO raised',
+          'Permits / approvals lodged'
+        ],
+        roughin: [
+          'Indoor unit / FCU positions set out',
+          'Refrigerant pipework installed',
+          'Condensate drains installed and falls checked',
+          'Ductwork and spigots run',
+          'Control cabling run',
+          'Nitrogen pressure test done and recorded',
+          'Penetrations sealed / fire collars fitted',
+          'Rough-in photos taken'
+        ],
+        fitoff: [
+          'Indoor and outdoor units installed',
+          'Vacuum test done and recorded',
+          'Refrigerant charge recorded (ARCtick log)',
+          'Grilles and diffusers fitted',
+          'Controller / thermostat installed',
+          'Electrical connection confirmed',
+          'Commissioning readings recorded',
+          'Customer handover and operating instructions',
+          'Site cleaned'
+        ]
+      },
+      Plumbing: {
+        planning: [
+          'Site inspection completed',
+          'Plans and fixture schedule confirmed',
+          'Water, gas and sewer connection points confirmed',
+          'Materials ordered',
+          'Notice of works / permits lodged'
+        ],
+        roughin: [
+          'Sanitary drainage installed',
+          'Water supply pipework installed',
+          'Gas pipework installed (if applicable)',
+          'Water pressure test done and recorded',
+          'Gas pressure test done and recorded',
+          'Drainage test done and recorded',
+          'Rough-in inspection booked / passed',
+          'Rough-in photos taken'
+        ],
+        fitoff: [
+          'Fixtures and tapware installed',
+          'Hot water unit installed and commissioned',
+          'Appliances connected',
+          'Final leak check',
+          'Compliance certificate issued',
+          'Customer handover',
+          'Site cleaned'
+        ]
+      }
+    };
+
+    const ICON = {
+      edit: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+      x: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+      back: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
+      left: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
+      right: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
+      camera: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3Z"/><circle cx="12" cy="13" r="3"/></svg>',
+      plus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+      file: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>',
+      print: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>'
+    };
+
+    /* ══════════ Helpers ══════════ */
+
+    const $ = id => document.getElementById(id);
+    const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    function isoOf(d) {
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    const today = () => isoOf(new Date());
+    function addDays(iso, n) { const d = new Date(iso + 'T00:00'); d.setDate(d.getDate() + n); return isoOf(d); }
+    const dayDiff = (a, b) => Math.round((new Date(b + 'T00:00') - new Date(a + 'T00:00')) / 86400000);
+    function mondayOf(iso) { return addDays(iso, -((new Date(iso + 'T00:00').getDay() + 6) % 7)); }
+
+    /* Working-day maths (weekends skipped per Settings) */
+    const workDays = () => state.settings?.workDays?.length ? state.settings.workDays : [1, 2, 3, 4, 5];
+    const isWorkDay = iso => workDays().includes(new Date(iso + 'T00:00').getDay()) && !holidayOn(iso);
+
+    /* ── Victorian public holidays (calculated per year) + company shutdowns ── */
+
+    const ymd = (y, m, d) => isoOf(new Date(y, m - 1, d));
+    const dow = iso => new Date(iso + 'T00:00').getDay();
+    function nthWeekday(y, m, weekday, n) {
+      let d = ymd(y, m, 1);
+      while (dow(d) !== weekday) d = addDays(d, 1);
+      return addDays(d, 7 * (n - 1));
+    }
+    function lastWeekday(y, m, weekday) {
+      let d = addDays(ymd(y, m + 1, 1), -1);
+      while (dow(d) !== weekday) d = addDays(d, -1);
+      return d;
+    }
+    function easterSunday(y) {
+      const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4;
+      const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+      const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+      return ymd(y, Math.floor((h + l - 7 * m + 114) / 31), ((h + l - 7 * m + 114) % 31) + 1);
+    }
+
+    const holidayCache = {};
+    function vicHolidays(y) {
+      const cup = state.settings.cupDay !== false;
+      const key = y + '|' + cup;
+      if (holidayCache[key]) return holidayCache[key];
+      const h = {};
+      const add = (iso, name) => { h[iso] = name; };
+      const mondayIfWeekend = (iso, name) => {
+        add(iso, name);
+        if (dow(iso) === 6) add(addDays(iso, 2), name + ' (observed)');
+        if (dow(iso) === 0) add(addDays(iso, 1), name + ' (observed)');
+      };
+      mondayIfWeekend(ymd(y, 1, 1), "New Year's Day");
+      mondayIfWeekend(ymd(y, 1, 26), 'Australia Day');
+      add(nthWeekday(y, 3, 1, 2), 'Labour Day');
+      const easter = easterSunday(y);
+      add(addDays(easter, -2), 'Good Friday');
+      add(addDays(easter, -1), 'Easter Saturday');
+      add(easter, 'Easter Sunday');
+      add(addDays(easter, 1), 'Easter Monday');
+      add(ymd(y, 4, 25), 'ANZAC Day');
+      add(nthWeekday(y, 6, 1, 2), "King's Birthday");
+      add(addDays(lastWeekday(y, 9, 6), -1), 'Grand Final Friday');
+      if (cup) add(nthWeekday(y, 11, 2, 1), 'Melbourne Cup');
+      add(ymd(y, 12, 25), 'Christmas Day');
+      add(ymd(y, 12, 26), 'Boxing Day');
+      const xmas = dow(ymd(y, 12, 25));
+      if (xmas === 6) { add(ymd(y, 12, 27), 'Christmas Day (observed)'); add(ymd(y, 12, 28), 'Boxing Day (observed)'); }
+      else if (xmas === 0) add(ymd(y, 12, 27), 'Christmas Day (observed)');
+      else if (xmas === 5) add(ymd(y, 12, 28), 'Boxing Day (observed)');
+      return holidayCache[key] = h;
+    }
+
+    /* Name of the public holiday or shutdown on a date, or '' */
+    function holidayOn(iso) {
+      const s = state.settings || {};
+      if (s.holidays !== false) {
+        const name = vicHolidays(Number(iso.slice(0, 4)))[iso];
+        if (name) return name;
+      }
+      const c = (s.closures || []).find(x => x.from <= iso && iso <= (x.to || x.from));
+      return c ? c.name : '';
+    }
+
+    /* Holidays that fall on a normal working weekday between two dates */
+    function holidaysBetween(a, b) {
+      const out = [];
+      for (let d = a; d <= b; d = addDays(d, 1)) {
+        const name = holidayOn(d);
+        if (name && workDays().includes(dow(d))) out.push([d, name]);
+      }
+      return out;
+    }
+    function nextWorkDay(iso) { while (!isWorkDay(iso)) iso = addDays(iso, 1); return iso; }
+    function prevWorkDay(iso) { while (!isWorkDay(iso)) iso = addDays(iso, -1); return iso; }
+    function shiftWorkDays(iso, n) {
+      const step = n < 0 ? -1 : 1;
+      let left = Math.abs(n);
+      while (left > 0) { iso = addDays(iso, step); if (isWorkDay(iso)) left--; }
+      return iso;
+    }
+    /* Signed count of working days moving from a to b (a itself not counted) */
+    function workDaysBetween(a, b) {
+      const step = b > a ? 1 : -1;
+      let n = 0;
+      while (a !== b) { a = addDays(a, step); if (isWorkDay(a)) n += step; }
+      return n;
+    }
+
+    function fmtDate(iso, withYear) {
+      if (!iso) return '';
+      const d = new Date(iso + 'T00:00');
+      const opts = { day: 'numeric', month: 'short' };
+      if (withYear || d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+      return d.toLocaleDateString('en-AU', opts);
+    }
+    function fmtTime(ts) {
+      return new Date(ts).toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+    }
+    function dateRange(start, end) {
+      if (!start) return 'Not scheduled';
+      if (!end || end === start) return fmtDate(start);
+      return fmtDate(start) + ' – ' + fmtDate(end);
+    }
+    const money = n => '$' + Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const money0 = n => (n < 0 ? '−$' : '$') + Math.round(Math.abs(n)).toLocaleString('en-AU');
+    const r2 = n => Math.round(n * 100) / 100;
+    const fmtH = n => r2(n) + ' h';
+    const fmtSize = b => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+    const blobToDataURL = b => new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(b);
+    });
+
+    function toast(msg) {
+      const t = $('toast');
+      t.textContent = msg;
+      t.hidden = false;
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => { t.hidden = true; }, 2200);
+    }
+
+    /* ══════════ Storage (IndexedDB — this device only) ══════════ */
+
+    let db;
+    let state = { version: 1, projects: [], crew: [], lastBackup: '' };
+    const photoCache = new Map();
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open('hcm-projects', 2);
+        req.onupgradeneeded = () => {
+          ['kv', 'photos', 'files'].forEach(n => {
+            if (!req.result.objectStoreNames.contains(n)) req.result.createObjectStore(n);
+          });
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function idb(store, mode, fn) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(store, mode);
+        const req = fn(tx.objectStore(store));
+        tx.oncomplete = () => resolve(req && req.result);
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    function idbAll(store) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(store);
+        const os = tx.objectStore(store);
+        const keys = os.getAllKeys(), vals = os.getAll();
+        tx.oncomplete = () => resolve(keys.result.map((k, i) => [k, vals.result[i]]));
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    /* Save locally and, when using the shared database, send the change */
+    function save() {
+      persistLocal();
+      schedulePush();
+    }
+
+    function persistLocal() {
+      clearTimeout(persistLocal.timer);
+      persistLocal.timer = setTimeout(() => {
+        if (!db) return;
+        idb('kv', 'readwrite', s => {
+          if (CLOUD) s.put(syncMeta(), 'sync');
+          return s.put(state, 'state');
+        }).catch(err => {
+          console.error(err);
+          toast('Could not save — storage may be full');
+        });
+      }, 250);
+    }
+
+    async function getPhoto(id) {
+      if (photoCache.has(id)) return photoCache.get(id);
+      const data = await idb('photos', 'readonly', s => s.get(id)) || await downloadFile('photos', id);
+      if (data) photoCache.set(id, data);
+      return data;
+    }
+
+    /* ══════════ Shared database (Supabase) ══════════
+       Leave these blank to keep all data on this device only. */
+
+    const SUPABASE_URL = '';
+    const SUPABASE_KEY = 'sb_publishable_IgMYvMALgEJ7MhALBWFm-Q__f8ywhTk';
+    const CLOUD = !!(SUPABASE_URL && SUPABASE_KEY);
+
+    /* Each project, crew member and the settings is one row in `records`. The device keeps a full
+       copy in IndexedDB; `base` remembers the last version agreed with the server for each record,
+       so offline edits can be found (they differ from base) and merged with other people's changes. */
+    let sb = null, session = null;
+    const sync = { base: {}, uploads: [], lastPull: '', ready: false, busy: false, again: false, migrating: false, pendingRender: false, status: '' };
+
+    const syncMeta = () => ({ base: sync.base, uploads: sync.uploads, lastPull: sync.lastPull });
+    const recKey = (kind, id) => kind + ':' + id;
+    const isPlainObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+    const isIdList = v => Array.isArray(v) && v.every(x => isPlainObj(x) && 'id' in x);
+
+    /* JSON with sorted keys, so the same data always compares equal (Postgres reorders jsonb keys) */
+    function stable(v) {
+      return JSON.stringify(v, (k, x) => isPlainObj(x) ? Object.keys(x).sort().reduce((o, key) => { o[key] = x[key]; return o; }, {}) : x);
+    }
+
+    function recordsOf(s) {
+      const m = {};
+      s.projects.forEach(p => { m[recKey('project', p.id)] = p; });
+      s.crew.forEach(c => { m[recKey('crew', c.id)] = c; });
+      m['settings:main'] = s.settings;
+      return m;
+    }
+
+    function pendingKeys() {
+      const recs = recordsOf(state);
+      return [...new Set([...Object.keys(recs), ...Object.keys(sync.base)])].filter(k => {
+        const json = recs[k] === undefined ? null : stable(recs[k]);
+        return sync.base[k] ? sync.base[k].json !== json : json !== null;
+      });
+    }
+
+    /* Three-way merge: keeps both people's edits. Lists of items with ids merge item by item;
+       when both changed the same plain value, this device's edit wins. */
+    function merge3(base, local, remote) {
+      const same = (a, b) => stable(a) === stable(b);
+      if (same(local, base)) return remote;
+      if (same(remote, base) || same(local, remote)) return local;
+      if (local === undefined || remote === undefined) return local === undefined ? remote : local;
+      if (isPlainObj(local) && isPlainObj(remote)) {
+        const b = isPlainObj(base) ? base : {};
+        const out = {};
+        new Set([...Object.keys(remote), ...Object.keys(local), ...Object.keys(b)]).forEach(k => {
+          const v = merge3(b[k], local[k], remote[k]);
+          if (v !== undefined) out[k] = v;
+        });
+        return out;
+      }
+      if (isIdList(local) && isIdList(remote)) {
+        const byId = a => new Map(isIdList(a) ? a.map(x => [x.id, x]) : []);
+        const B = byId(base), L = byId(local), R = byId(remote);
+        const ids = [...remote.map(x => x.id), ...local.map(x => x.id).filter(id => !R.has(id))];
+        return ids.map(id => merge3(B.get(id), L.get(id), R.get(id))).filter(v => v !== undefined);
+      }
+      return local;
+    }
+
+    /* Update target in place to match src, reusing nested objects (and list items by id)
+       so forms that are open keep pointing at live data */
+    function reconcile(target, src) {
+      Object.keys(target).forEach(k => { if (!(k in src)) delete target[k]; });
+      Object.keys(src).forEach(k => {
+        const a = target[k], b = src[k];
+        if (isPlainObj(a) && isPlainObj(b)) reconcile(a, b);
+        else if (Array.isArray(a) && isIdList(b)) {
+          const old = new Map(a.filter(x => isPlainObj(x) && 'id' in x).map(x => [x.id, x]));
+          target[k] = b.map(item => { const o = old.get(item.id); if (o) { reconcile(o, item); return o; } return item; });
+        } else target[k] = b;
+      });
+    }
+
+    function setRecord(key, val) {
+      const i = key.indexOf(':'), kind = key.slice(0, i), id = key.slice(i + 1);
+      if (kind === 'settings') { if (val) reconcile(state.settings, val); return; }
+      const list = kind === 'project' ? state.projects : kind === 'crew' ? state.crew : null;
+      if (!list) return;
+      const idx = list.findIndex(x => x.id === id);
+      if (val === undefined) { if (idx >= 0) list.splice(idx, 1); }
+      else if (idx >= 0) reconcile(list[idx], val);
+      else list.push(val);
+    }
+
+    /* Bring one server row into local state. Returns true if anything changed. */
+    function applyRemote(row) {
+      const key = recKey(row.kind, row.id);
+      const b = sync.base[key];
+      if (b && b.v >= row.version) return false;
+      const remote = row.deleted ? undefined : row.data;
+      const local = recordsOf(state)[key];
+      const localJson = local === undefined ? null : stable(local);
+      /* A new device's default settings never overwrite the team's */
+      const changed = b ? b.json !== localJson : localJson !== null && !(row.kind === 'settings' && !sync.migrating);
+      const val = changed ? merge3(b && b.json ? JSON.parse(b.json) : undefined, local, remote) : remote;
+      sync.base[key] = { v: row.version, json: remote === undefined ? null : stable(remote) };
+      setRecord(key, val);
+      return true;
+    }
+
+    async function pushRecord(key) {
+      const i = key.indexOf(':'), kind = key.slice(0, i), id = key.slice(i + 1);
+      const local = recordsOf(state)[key];
+      const b = sync.base[key];
+      const json = local === undefined ? null : stable(local);
+      const row = { data: local === undefined ? (b && b.json ? JSON.parse(b.json) : null) : local, deleted: local === undefined };
+      if (!b) {
+        const { error } = await sb.from('records').insert({ kind, id, ...row, version: 1 });
+        if (!error) { sync.base[key] = { v: 1, json }; return; }
+        if (error.code !== '23505') throw error;
+      } else {
+        const { data, error } = await sb.from('records').update({ ...row, version: b.v + 1 })
+          .eq('kind', kind).eq('id', id).eq('version', b.v).select('version');
+        if (error) throw error;
+        if (data.length) { sync.base[key] = { v: b.v + 1, json }; return; }
+      }
+      /* Someone else saved this record first: merge their version in, then push again */
+      const { data, error } = await sb.from('records').select('*').eq('kind', kind).eq('id', id).maybeSingle();
+      if (error) throw error;
+      if (data) { applyRemote(data); sync.changed = true; } else delete sync.base[key];
+      sync.again = true;
+    }
+
+    async function pullChanges() {
+      const since = sync.lastPull ? new Date(new Date(sync.lastPull).getTime() - 10000).toISOString() : '';
+      let from = 0, latest = sync.lastPull;
+      for (;;) {
+        let q = sb.from('records').select('*').order('updated_at').range(from, from + 499);
+        if (since) q = q.gt('updated_at', since);
+        const { data, error } = await q;
+        if (error) throw error;
+        data.forEach(r => {
+          if (applyRemote(r)) sync.changed = true;
+          if (!latest || r.updated_at > latest) latest = r.updated_at;
+        });
+        if (data.length < 500) break;
+        from += 500;
+      }
+      sync.lastPull = latest;
+    }
+
+    function queueUpload(store, id) {
+      if (CLOUD && !sync.uploads.some(u => u.id === id)) sync.uploads.push({ store, id });
+    }
+
+    async function processUploads() {
+      while (sync.uploads.length) {
+        const u = sync.uploads[0];
+        const val = await idb(u.store, 'readonly', s => s.get(u.id));
+        if (val) {
+          const blob = typeof val === 'string' ? await (await fetch(val)).blob() : val;
+          const { error } = await sb.storage.from('hcm').upload(`${u.store}/${u.id}`, blob, { upsert: true, contentType: blob.type || 'application/octet-stream' });
+          if (error) throw error;
+        }
+        sync.uploads.shift();
+        persistLocal();
+      }
+    }
+
+    async function downloadFile(store, id) {
+      if (!sb || !session) return null;
+      const { data, error } = await sb.storage.from('hcm').download(`${store}/${id}`);
+      if (error || !data) return null;
+      const val = store === 'photos' ? await blobToDataURL(data) : data;
+      await idb(store, 'readwrite', s => s.put(val, id));
+      return val;
+    }
+
+    function removeRemoteFile(store, id) {
+      sync.uploads = sync.uploads.filter(u => u.id !== id);
+      if (sb && session) sb.storage.from('hcm').remove([`${store}/${id}`]).catch(() => {});
+    }
+
+    function schedulePush() {
+      if (!CLOUD || !sync.ready) return;
+      clearTimeout(schedulePush.timer);
+      schedulePush.timer = setTimeout(pushAll, 1200);
+    }
+
+    async function pushAll() {
+      if (!sb || !session || !sync.ready) return;
+      if (sync.busy) { sync.again = true; return; }
+      sync.busy = true;
+      setSyncStatus('saving');
+      try {
+        for (let pass = 0; pass < 5; pass++) {
+          sync.again = false;
+          for (const key of pendingKeys()) await pushRecord(key);
+          if (!sync.again) break;
+        }
+        await processUploads();
+        setSyncStatus('synced');
+      } catch (err) {
+        console.error(err);
+        setSyncStatus(navigator.onLine ? 'error' : 'offline');
+        retrySoon();
+      } finally {
+        sync.busy = false;
+        persistLocal();
+        if (sync.changed) { sync.changed = false; normalize(state); requestRender(); }
+      }
+    }
+
+    async function syncNow() {
+      if (!sb || !session) return;
+      setSyncStatus('saving');
+      try {
+        await pullChanges();
+        sync.ready = true;
+      } catch (err) {
+        console.error(err);
+        setSyncStatus(navigator.onLine ? 'error' : 'offline');
+        retrySoon();
+        return;
+      }
+      await pushAll();
+    }
+
+    function retrySoon() {
+      clearTimeout(retrySoon.timer);
+      retrySoon.timer = setTimeout(syncNow, 30000);
+    }
+
+    function setSyncStatus(s) {
+      sync.status = s;
+      const el = $('sync-pill');
+      if (!el) return;
+      const waiting = pendingKeys().length + sync.uploads.length;
+      const [text, cls] = {
+        saving: ['Syncing…', ''],
+        synced: ['Synced', 'tag-good'],
+        offline: ['Offline' + (waiting ? ` · ${waiting} waiting` : ''), 'tag-warn'],
+        error: ['Sync problem · retrying', 'tag-bad']
+      }[s] || ['', ''];
+      el.hidden = !CLOUD || !session || !text;
+      el.textContent = text;
+      el.className = 'tag ' + cls;
+    }
+
+    /* Re-render for incoming changes, but not while someone is typing, signing or has a form open */
+    function requestRender() {
+      const a = document.activeElement;
+      const typing = a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.closest('#app, #modal');
+      if (!$('modal').hidden || typing || $('sigpad')?.dataset.ink) { sync.pendingRender = true; return; }
+      sync.pendingRender = false;
+      render();
+    }
+    document.addEventListener('focusout', () => setTimeout(() => { if (sync.pendingRender) requestRender(); }, 400));
+
+    function subscribeRealtime() {
+      sb.channel('records')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'records' }, payload => {
+          const row = payload.new;
+          if (!row || !row.kind || !applyRemote(row)) return;
+          normalize(state);
+          persistLocal();
+          requestRender();
+        })
+        .subscribe(status => { if (status === 'SUBSCRIBED') syncNow(); });
+    }
+
+    async function startSync() {
+      /* First sign-in on a device that already has local data: offer to upload it */
+      if (!Object.keys(sync.base).length && (state.projects.length || state.crew.length)) {
+        sync.migrating = confirm(`This device has ${state.projects.length} project(s) and ${state.crew.length} crew member(s) saved on it.\n\nOK = upload them to the shared database.\nCancel = remove them from this device and use the shared data.`);
+        if (sync.migrating) {
+          (await idbAll('photos')).forEach(([k]) => queueUpload('photos', k));
+          (await idbAll('files')).forEach(([k]) => queueUpload('files', k));
+        } else {
+          state = normalize({ version: 1, projects: [], crew: [], lastBackup: '' });
+        }
+      }
+      subscribeRealtime();
+      await syncNow();
+      sync.migrating = false;
+    }
+
+    async function initCloud() {
+      if (!window.supabase) return;
+      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      session = (await sb.auth.getSession()).data.session;
+      sb.auth.onAuthStateChange((event, s) => { session = s; });
+      window.addEventListener('online', syncNow);
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
+      if (session) startSync();
+    }
+
+    function loginView() {
+      return `<section class="card login">
+        <h2>Sign in</h2>
+        <p class="muted" style="margin-bottom:16px">Use the email and password the office set up for you.</p>
+        ${sb ? `<form onsubmit="event.preventDefault(); signIn(this)">
+          <label class="lbl">Email</label>
+          <input name="email" type="email" autocomplete="username" required />
+          <label class="lbl" style="margin-top:12px">Password</label>
+          <input name="password" type="password" autocomplete="current-password" required />
+          <button class="btn" style="margin-top:18px;width:100%">Sign in</button>
+          <div id="login-msg" class="faint" style="margin-top:12px">Forgotten your password? Ask the office to reset it.</div>
+        </form>` : `<div class="warn-box">Can’t reach the server. Check your connection, then reload the page.</div>`}
+      </section>`;
+    }
+
+    async function signIn(f) {
+      const msg = $('login-msg');
+      msg.textContent = 'Signing in…';
+      const { data, error } = await sb.auth.signInWithPassword({ email: f.email.value.trim(), password: f.password.value });
+      if (error) {
+        msg.textContent = /invalid login/i.test(error.message) ? 'Wrong email or password.' : error.message;
+        return;
+      }
+      session = data.session;
+      render();
+      await startSync();
+    }
+
+    async function signOut() {
+      const waiting = pendingKeys().length + sync.uploads.length;
+      const warning = waiting
+        ? `${waiting} change(s) haven’t reached the shared database yet and will be lost. Sign out anyway?`
+        : 'Sign out? The copy of the data on this device will be cleared.';
+      if (!confirm(warning)) return;
+      await sb.removeAllChannels();
+      await sb.auth.signOut();
+      await idb('photos', 'readwrite', s => s.clear());
+      await idb('files', 'readwrite', s => s.clear());
+      photoCache.clear();
+      state = normalize({ version: 1, projects: [], crew: [], lastBackup: '' });
+      Object.assign(sync, { base: {}, uploads: [], lastPull: '', ready: false });
+      await idb('kv', 'readwrite', s => { s.put(syncMeta(), 'sync'); return s.put(state, 'state'); });
+      session = null;
+      location.hash = '#/';
+      render();
+    }
+
+    function loadPhotos() {
+      document.querySelectorAll('img[data-photo]').forEach(async img => {
+        const data = await getPhoto(img.dataset.photo);
+        if (data) img.src = data;
+      });
+    }
+
+    function compressImage(file, max = 1280, quality = 0.7) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, max / Math.max(img.width, img.height));
+          const c = document.createElement('canvas');
+          c.width = Math.round(img.width * scale);
+          c.height = Math.round(img.height * scale);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          URL.revokeObjectURL(url);
+          resolve(c.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read image')); };
+        img.src = url;
+      });
+    }
+
+    /* ══════════ Data model ══════════ */
+
+    const getP = id => state.projects.find(p => p.id === id);
+    const getCrew = id => state.crew.find(c => c.id === id);
+    const crewNames = ids => (ids || []).map(id => getCrew(id)?.name).filter(Boolean).join(', ');
+    const activeCrew = () => state.crew.filter(c => c.active !== false);
+
+    function checklistFor(trade, key) {
+      const items = trade === 'HVAC + Plumbing'
+        ? [...CHECKLISTS.HVAC[key], ...CHECKLISTS.Plumbing[key]]
+        : CHECKLISTS[trade][key];
+      return [...new Set(items)];
+    }
+
+    function newStage(trade, key) {
+      return {
+        status: 'Not started', start: '', end: '', crew: [],
+        checklist: checklistFor(trade, key).map(text => ({ id: uid(), text, done: false })),
+        notes: '', photos: [], readings: [], time: [], signoff: null
+      };
+    }
+
+    function currentStage(p) {
+      return STAGES.find(s => p.stages[s.key].status !== 'Complete') || null;
+    }
+
+    function checkProgress(st) {
+      const done = st.checklist.filter(i => i.done).length;
+      return { done, total: st.checklist.length, pct: st.checklist.length ? Math.round(done / st.checklist.length * 100) : 0 };
+    }
+
+    function nextJobNo() {
+      const nums = state.projects.map(p => parseInt(String(p.jobNo).replace(/\D/g, ''), 10)).filter(n => !isNaN(n));
+      return 'HCM-' + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4, '0');
+    }
+
+    /* Fill in fields added after a project or backup was first saved */
+    function normalize(s) {
+      s.settings = { labourCost: 60, hoursPerDay: 8, workDays: [1, 2, 3, 4, 5], holidays: true, cupDay: true, closures: [], ...(s.settings || {}) };
+      s.settings.gaps = { planning: 5, roughin: 15, ...(s.settings.gaps || {}) };
+      s.projects.forEach(p => {
+        ['materials', 'equipment', 'issues', 'docs', 'milestones'].forEach(k => { p[k] = p[k] || []; });
+        p.deadline = p.deadline || '';
+        ['contractValue', 'quotedHours', 'materialsBudget'].forEach(k => { if (p[k] === undefined) p[k] = ''; });
+      });
+      return s;
+    }
+
+    const crewRate = cid => parseFloat(getCrew(cid)?.costRate) || parseFloat(state.settings.labourCost) || 0;
+    const lineCost = m => (parseFloat(m.cost) || 0) * (parseFloat(m.qty) || 1);
+
+    function costing(p) {
+      let hours = 0, labour = 0;
+      STAGES.forEach(s => p.stages[s.key].time.forEach(t => {
+        const h = parseFloat(t.hours) || 0;
+        hours += h;
+        labour += h * crewRate(t.crewId);
+      }));
+      const sumIssues = (kind, statuses) => p.issues
+        .filter(i => i.kind === kind && (!statuses || statuses.includes(i.status)))
+        .reduce((n, i) => n + (parseFloat(i.amount) || 0), 0);
+      const contract = parseFloat(p.contractValue) || 0;
+      const variations = sumIssues('Variation', ['Approved', 'Completed']);
+      const materials = p.materials.reduce((n, m) => n + lineCost(m), 0);
+      const defects = sumIssues('Defect');
+      const revenue = contract + variations;
+      const cost = labour + materials + defects;
+      const profit = revenue - cost;
+      return {
+        contract, variations, revenue, hours, quotedHours: parseFloat(p.quotedHours) || 0,
+        labour, materials, materialsBudget: parseFloat(p.materialsBudget) || 0, defects, cost, profit,
+        margin: revenue ? profit / revenue * 100 : null
+      };
+    }
+
+    function nextRef(p, kind) {
+      const n = p.issues.filter(i => i.kind === kind).reduce((m, i) => Math.max(m, parseInt(String(i.ref).slice(1), 10) || 0), 0);
+      return kind[0] + (n + 1);
+    }
+
+    /* All scheduled stages, as date-range bookings */
+    function bookings() {
+      const out = [];
+      state.projects.forEach(p => STAGES.forEach(s => {
+        const st = p.stages[s.key];
+        if (st.start) out.push({ p, s, st, start: st.start, end: st.end && st.end >= st.start ? st.end : st.start, crew: st.crew });
+      }));
+      return out.sort((a, b) => a.start.localeCompare(b.start));
+    }
+
+    /* Same crew member booked on two open stages with overlapping dates */
+    function clashes() {
+      const bs = bookings().filter(b => b.st.status !== 'Complete' && b.p.status !== 'Complete');
+      const out = [];
+      for (let i = 0; i < bs.length; i++) {
+        for (let j = i + 1; j < bs.length; j++) {
+          const a = bs[i], b = bs[j];
+          if (a.start <= b.end && b.start <= a.end) {
+            a.crew.filter(c => b.crew.includes(c)).forEach(cid => out.push({ cid, a, b }));
+          }
+        }
+      }
+      return out;
+    }
+
+    function attentionItems() {
+      const t = today();
+      const items = [];
+      state.projects.filter(p => p.status === 'Active').forEach(p => STAGES.forEach(s => {
+        const st = p.stages[s.key];
+        const due = st.end || st.start;
+        if (due && due < t && st.status !== 'Complete') {
+          items.push({ level: 'bad', text: `${p.name} — ${s.label} overdue (due ${fmtDate(due)})`, href: `#/project/${p.id}/stage/${s.key}` });
+        }
+      }));
+      clashes().forEach(({ cid, a, b }) => {
+        items.push({ level: 'warn', text: `${getCrew(cid)?.name || 'Crew member'} double-booked: ${a.p.name} (${a.s.label}) and ${b.p.name} (${b.s.label})`, href: `#/project/${a.p.id}/stage/${a.s.key}` });
+      });
+      state.projects.filter(p => p.status === 'Active').forEach(p => {
+        const href = `#/project/${p.id}`;
+        const open = p.issues.filter(i => i.kind === 'Defect' && i.status !== 'Fixed').length;
+        if (open) items.push({ level: 'bad', text: `${p.name} — ${open} open defect${open > 1 ? 's' : ''}`, href });
+        const pending = p.issues.filter(i => i.kind === 'Variation' && i.status === 'Pending').length;
+        if (pending) items.push({ level: 'warn', text: `${p.name} — ${pending} variation${pending > 1 ? 's' : ''} awaiting approval`, href });
+        const jc = costing(p);
+        if (jc.quotedHours && jc.hours > jc.quotedHours) items.push({ level: 'warn', text: `${p.name} — ${fmtH(jc.hours)} logged vs ${fmtH(jc.quotedHours)} quoted`, href });
+        if (jc.materialsBudget && jc.materials > jc.materialsBudget) items.push({ level: 'warn', text: `${p.name} — materials ${money0(jc.materials)} over ${money0(jc.materialsBudget)} budget`, href });
+      });
+      state.projects.filter(p => p.status !== 'Complete').forEach(p => {
+        const href = `#/project/${p.id}`;
+        if (p.deadline) {
+          const ts = timelineStatus(p);
+          if (p.deadline < t) items.push({ level: 'bad', text: `${p.name} — deadline ${fmtDate(p.deadline)} has passed`, href });
+          else if (ts.spare !== null && ts.spare < 0) items.push({ level: 'bad', text: `${p.name} — scheduled to finish ${fmtDate(ts.finish)}, after the ${fmtDate(p.deadline)} deadline`, href });
+          else if (p.deadline <= addDays(t, 7)) items.push({ level: 'warn', text: `${p.name} — deadline ${fmtDate(p.deadline)} (${dayDiff(t, p.deadline)} days)`, href });
+        }
+        p.milestones.filter(m => !m.done && m.date).forEach(m => {
+          if (m.date < t) items.push({ level: 'bad', text: `${p.name} — ${m.title} overdue (${fmtDate(m.date)})`, href });
+          else if (m.date <= addDays(t, 3)) items.push({ level: 'warn', text: `${p.name} — ${m.title} due ${fmtDate(m.date)}`, href });
+        });
+      });
+      const soon = addDays(t, 60);
+      state.projects.forEach(p => (p.equipment || []).forEach(e => {
+        if (e.warrantyEnd && e.warrantyEnd >= t && e.warrantyEnd <= soon) {
+          items.push({ level: 'warn', text: `Warranty expiring ${fmtDate(e.warrantyEnd)} — ${e.brandModel || e.type} at ${p.name}`, href: `#/project/${p.id}` });
+        }
+      }));
+      if (!CLOUD && state.projects.length && (!state.lastBackup || state.lastBackup < addDays(t, -7))) {
+        items.push({ level: 'warn', text: state.lastBackup ? `Last backup was ${fmtDate(state.lastBackup)} — export a new one` : 'No backup yet — data is only stored on this device', href: '#/settings' });
+      }
+      return items;
+    }
+
+    /* ══════════ Shared view pieces ══════════ */
+
+    function stagebar(p) {
+      return `<div class="stagebar">${STAGES.map(s => {
+        const st = p.stages[s.key].status;
+        const style = st === 'Complete' ? `background:${s.color}` : st === 'In progress' ? `background:${s.color};opacity:.45` : '';
+        return `<span style="${style}"></span>`;
+      }).join('')}</div>
+      <div class="stagebar-labels">${STAGES.map(s => `<div>${s.label}</div>`).join('')}</div>`;
+    }
+
+    function statusTag(p) {
+      if (p.status === 'Complete') return '<span class="tag tag-good">Complete</span>';
+      if (p.status === 'On hold') return '<span class="tag tag-warn">On hold</span>';
+      const cs = currentStage(p);
+      return cs ? `<span class="tag"><span class="dot" style="background:${cs.color}"></span>${cs.label}</span>` : '<span class="tag tag-good">All stages done</span>';
+    }
+
+    function projectCard(p) {
+      const cs = currentStage(p);
+      let meta = '';
+      if (cs) {
+        const st = p.stages[cs.key];
+        const pr = checkProgress(st);
+        meta = `<span>${cs.label}: ${pr.done}/${pr.total} checked</span><span>${st.start ? dateRange(st.start, st.end) : 'Not scheduled'}</span>`;
+      } else {
+        meta = '<span>All stages complete</span>';
+      }
+      return `<a class="pcard" href="#/project/${p.id}">
+        <div class="pcard-top"><span class="faint">${esc(p.jobNo)} · ${esc(p.trade)}${p.deadline ? ' · due ' + fmtDate(p.deadline) : ''}</span>${statusTag(p)}</div>
+        <div class="pcard-name">${esc(p.name)}</div>
+        <div class="pcard-addr">${esc(p.address) || '&nbsp;'}</div>
+        ${stagebar(p)}
+        <div class="pcard-meta">${meta}</div>
+      </a>`;
+    }
+
+    function bookingRow(b) {
+      return `<a class="brow" href="#/project/${b.p.id}/stage/${b.s.key}">
+        <span class="dot" style="background:${b.s.color}"></span>
+        <div class="brow-main">
+          <div class="brow-title">${esc(b.p.name)} · ${b.s.label}</div>
+          <div class="muted">${dateRange(b.start, b.end)} · ${esc(crewNames(b.crew)) || 'No crew assigned'}</div>
+        </div>
+        ${b.st.status === 'Complete' ? '<span class="tag tag-good">Done</span>' : ''}
+      </a>`;
+    }
+
+    const empty = msg => `<div class="empty">${msg}</div>`;
+
+    /* ══════════ Dashboard ══════════ */
+
+    function dashboardView() {
+      if (!state.projects.length) {
+        return `<section class="card welcome">
+          <h2>Track every HVAC and plumbing job</h2>
+          <p>Create a project, then move it through Planning, Rough-in and Fit-off. Add your crew first so you can assign them to stages.</p>
+          <div class="btn-row">
+            <button class="btn" onclick="newProject()">${ICON.plus} Create first project</button>
+            <a class="btn btn-ghost" href="#/crew">Add crew</a>
+          </div>
+        </section>`;
+      }
+      const active = state.projects.filter(p => p.status === 'Active');
+      const onHold = state.projects.filter(p => p.status === 'On hold');
+      const t = today(), wk = addDays(t, 6);
+      const upcoming = bookings().filter(b => b.st.status !== 'Complete' && b.p.status !== 'Complete' && b.start <= wk && b.end >= t);
+      const alerts = attentionItems();
+      const stat = (label, n, color) => `<div class="stat"><div class="stat-num" style="color:${color}">${n}</div><div class="stat-label">${label}</div></div>`;
+
+      return `
+        <div class="stats">
+          ${stat('Active projects', active.length, 'var(--white)')}
+          ${STAGES.map(s => stat('In ' + s.label, active.filter(p => currentStage(p)?.key === s.key).length, s.color)).join('')}
+        </div>
+        <div class="grid2">
+          <section class="card">
+            <h2>Needs attention ${alerts.length ? `<span class="tag tag-bad">${alerts.length}</span>` : ''}</h2>
+            <div class="rows">${alerts.length ? alerts.map(a => `<a class="brow" href="${a.href}">
+              <span class="dot" style="background:${a.level === 'bad' ? 'var(--c-red)' : 'var(--c-amber)'}"></span>
+              <div class="brow-main brow-title">${esc(a.text)}</div></a>`).join('') : empty('All clear')}</div>
+          </section>
+          <section class="card">
+            <h2>Next 7 days <a class="btn btn-ghost btn-sm" href="#/schedule">Calendar</a></h2>
+            <div class="rows">${upcoming.length ? upcoming.map(bookingRow).join('') : empty('Nothing booked this week')}</div>
+          </section>
+        </div>
+        <h2 class="h-section">Pipeline</h2>
+        <div class="kanban">
+          ${STAGES.map(s => {
+            const ps = active.filter(p => currentStage(p)?.key === s.key);
+            return `<div class="kcol">
+              <div class="kcol-head"><span class="dot" style="background:${s.color}"></span>${s.label}<span class="count">${ps.length}</span></div>
+              ${ps.length ? ps.map(projectCard).join('') : empty('No projects')}
+            </div>`;
+          }).join('')}
+        </div>
+        ${onHold.length ? `<h2 class="h-section">On hold</h2><div class="plist">${onHold.map(projectCard).join('')}</div>` : ''}`;
+    }
+
+    /* ══════════ Projects list ══════════ */
+
+    const ui = {
+      q: '', trade: '', status: 'open', calMonth: today().slice(0, 7), selDay: today(), calCrew: '',
+      schedView: 'month', tlFrom: mondayOf(today()),
+      rTrade: '', rStatus: 'all', rFrom: addDays(today(), -30), rTo: today(),
+      repPhotos: true, repTime: false
+    };
+
+    function projectsView() {
+      return `
+        <div class="page-head"><h1 class="page-title">Projects</h1></div>
+        <div class="filters">
+          <input type="search" placeholder="Search name, job no, address, customer…" value="${esc(ui.q)}" oninput="ui.q = this.value; refreshList()" />
+          <select onchange="ui.trade = this.value; refreshList()">
+            <option value="">All trades</option>
+            ${TRADES.map(t => `<option ${ui.trade === t ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>
+          <select onchange="ui.status = this.value; refreshList()">
+            ${[['open', 'Open (active + on hold)'], ['Active', 'Active'], ['On hold', 'On hold'], ['Complete', 'Complete'], ['all', 'All projects']]
+              .map(([v, l]) => `<option value="${v}" ${ui.status === v ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+        </div>
+        <div id="plist">${projectListHTML()}</div>`;
+    }
+
+    function projectListHTML() {
+      const q = ui.q.trim().toLowerCase();
+      const list = state.projects.filter(p => {
+        if (ui.trade && p.trade !== ui.trade) return false;
+        if (ui.status === 'open' && p.status === 'Complete') return false;
+        if (!['open', 'all'].includes(ui.status) && p.status !== ui.status) return false;
+        if (q && ![p.name, p.jobNo, p.address, p.customer?.name, p.builder].join(' ').toLowerCase().includes(q)) return false;
+        return true;
+      }).sort((a, b) => String(b.jobNo).localeCompare(String(a.jobNo)));
+      if (!list.length) return `<div class="card">${empty(state.projects.length ? 'No projects match these filters.' : 'No projects yet. Use “New project” to add one.')}</div>`;
+      return `<div class="plist">${list.map(projectCard).join('')}</div>`;
+    }
+
+    function refreshList() { $('plist').innerHTML = projectListHTML(); }
+
+    /* ══════════ Project detail ══════════ */
+
+    function projectView(p) {
+      const c = p.customer || {};
+      const mats = p.materials || [];
+      const equip = p.equipment || [];
+      const jc = costing(p);
+      const matCost = jc.materials;
+      const issues = p.issues;
+      const docs = p.docs;
+      const stageLabel = k => STAGES.find(s => s.key === k)?.label || 'General';
+
+      /* Labour totals by stage and crew member */
+      const hoursBy = {};
+      let totalHours = 0;
+      STAGES.forEach(s => p.stages[s.key].time.forEach(t => {
+        const h = parseFloat(t.hours) || 0;
+        totalHours += h;
+        hoursBy[t.crewId] = hoursBy[t.crewId] || { total: 0 };
+        hoursBy[t.crewId][s.key] = (hoursBy[t.crewId][s.key] || 0) + h;
+        hoursBy[t.crewId].total += h;
+      }));
+
+      const t = today(), soon = addDays(t, 60);
+      const warrantyTag = e => !e.warrantyEnd ? '' : e.warrantyEnd < t ? '<span class="tag tag-bad">Expired</span>' : e.warrantyEnd <= soon ? '<span class="tag tag-warn">Expiring soon</span>' : '<span class="tag tag-good">In warranty</span>';
+      const mapUrl = 'https://maps.google.com/?q=' + encodeURIComponent(p.address || '');
+
+      return `
+        <a class="back" href="#/projects">${ICON.back} Projects</a>
+        <div class="page-head">
+          <div>
+            <div class="faint" style="margin-bottom:6px">${esc(p.jobNo)} · ${esc(p.trade)}</div>
+            <h1 class="page-title">${esc(p.name)}</h1>
+          </div>
+          <div class="btn-row">${statusTag(p)}<button class="btn btn-ghost btn-sm" onclick="editProject('${p.id}')">${ICON.edit} Edit</button></div>
+        </div>
+
+        <section class="card">
+          <div class="info-grid">
+            <div><div class="k">Site address</div>${p.address ? `<a href="${mapUrl}" target="_blank" rel="noopener">${esc(p.address)}</a>` : '—'}</div>
+            <div><div class="k">Customer</div>${esc(c.name) || '—'}</div>
+            <div><div class="k">Phone</div>${c.phone ? `<a href="tel:${esc(c.phone.replace(/\s/g, ''))}">${esc(c.phone)}</a>` : '—'}</div>
+            <div><div class="k">Email</div>${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : '—'}</div>
+            <div><div class="k">Builder / client</div>${esc(p.builder) || '—'}</div>
+            <div><div class="k">Project status</div>${esc(p.status)}</div>
+            <div><div class="k">Deadline / handover</div>${p.deadline ? fmtDate(p.deadline, true) : '—'}</div>
+          </div>
+          ${p.notes ? `<div style="margin-top:16px;white-space:pre-wrap" class="muted">${esc(p.notes)}</div>` : ''}
+        </section>
+
+        <h2 class="h-section">Job costing</h2>
+        <div class="stats">
+          ${costTile('Revenue', money0(jc.revenue), jc.variations ? `${money0(jc.contract)} contract + ${money0(jc.variations)} variations` : jc.contract ? 'Contract value' : 'No contract value set')}
+          ${costTile('Labour', money0(jc.labour), fmtH(jc.hours) + (jc.quotedHours ? ` of ${fmtH(jc.quotedHours)} quoted` : ''), jc.quotedHours && jc.hours > jc.quotedHours ? 'over' : '')}
+          ${costTile('Materials', money0(jc.materials), jc.materialsBudget ? `of ${money0(jc.materialsBudget)} budget` : 'No budget set', jc.materialsBudget && jc.materials > jc.materialsBudget ? 'over' : '')}
+          ${costTile('Profit', money0(jc.profit), (jc.margin === null ? 'No revenue yet' : Math.round(jc.margin) + '% margin') + (jc.defects ? ` · incl. ${money0(jc.defects)} defects` : ''), jc.profit < 0 ? 'neg' : '')}
+        </div>
+        ${!jc.contract ? `<div class="faint" style="margin:0 4px">Add the contract value, quoted hours and materials budget with <a style="color:var(--c-cyan)" href="#" onclick="event.preventDefault(); editProject('${p.id}')">Edit</a> to track profit.</div>` : ''}
+
+        <h2 class="h-section">Timeline & deadlines
+          <span class="btn-row">
+            <button class="btn btn-sm" onclick="planTimeline('${p.id}')">Plan timeline</button>
+            <button class="btn btn-ghost btn-sm" onclick="editMilestone('${p.id}')">${ICON.plus} Milestone</button>
+          </span>
+        </h2>
+        <section class="card">${timelineSection(p)}</section>
+
+        <h2 class="h-section">Stages <a class="btn btn-ghost btn-sm" href="#/project/${p.id}/report/all">${ICON.print} Full report</a></h2>
+        <div class="stage-cards">
+          ${STAGES.map(s => {
+            const st = p.stages[s.key];
+            const pr = checkProgress(st);
+            return `<a class="stage-card" href="#/project/${p.id}/stage/${s.key}" style="border-top-color:${s.color}">
+              <h3>${s.label} <span class="tag ${st.status === 'Complete' ? 'tag-good' : st.status === 'In progress' ? 'tag-warn' : ''}">${st.status}</span></h3>
+              <div class="progress" style="margin-bottom:10px"><i style="width:${pr.pct}%;background:${s.color}"></i></div>
+              <div class="kv"><span>Checklist</span><span>${pr.done}/${pr.total}</span></div>
+              <div class="kv"><span>Dates</span><span>${dateRange(st.start, st.end)}</span></div>
+              <div class="kv"><span>Crew</span><span>${esc(crewNames(st.crew)) || '—'}</span></div>
+              <div class="kv"><span>Photos / readings</span><span>${st.photos.length} / ${st.readings.length}</span></div>
+              <div class="kv"><span>Sign-off</span><span>${st.signoff ? esc(st.signoff.name) + ', ' + fmtDate(st.signoff.date) : '—'}</span></div>
+            </a>`;
+          }).join('')}
+        </div>
+
+        <h2 class="h-section">Defects & variations
+          <span class="btn-row">
+            <button class="btn btn-ghost btn-sm" onclick="editIssue('${p.id}', null, 'Defect')">${ICON.plus} Defect</button>
+            <button class="btn btn-ghost btn-sm" onclick="editIssue('${p.id}', null, 'Variation')">${ICON.plus} Variation</button>
+          </span>
+        </h2>
+        <section class="card">
+          ${issues.length ? `<div class="tbl-wrap"><table class="tbl">
+            <thead><tr><th>Ref</th><th>Item</th><th>Stage</th><th>Status</th><th class="num">Amount</th></tr></thead>
+            <tbody>${issues.map(i => `<tr class="click" onclick="editIssue('${p.id}','${i.id}')">
+              <td><span class="tag ${i.kind === 'Defect' ? 'tag-bad' : ''}">${esc(i.ref)}</span></td>
+              <td><b>${esc(i.title)}</b><div class="faint">${i.kind} · raised ${fmtDate(i.raised)}${i.raisedBy ? ' by ' + esc(i.raisedBy) : ''}</div></td>
+              <td>${stageLabel(i.stage)}</td>
+              <td>${issueStatusTag(i)}</td>
+              <td class="num">${i.amount ? (i.kind === 'Variation' ? '+' : '−') + money(i.amount) : ''}</td>
+            </tr>`).join('')}</tbody>
+          </table></div>` : empty('No defects or variations. Log builder defects to fix and extra work the client has asked for.')}
+        </section>
+
+        <h2 class="h-section">Materials <button class="btn btn-ghost btn-sm" onclick="editMaterial('${p.id}')">${ICON.plus} Add</button></h2>
+        <section class="card">
+          ${mats.length ? `<div class="tbl-wrap"><table class="tbl">
+            <thead><tr><th>Item</th><th class="num">Qty</th><th>Stage</th><th>Supplier</th><th class="num">Cost</th></tr></thead>
+            <tbody>${mats.map(m => `<tr class="click" onclick="editMaterial('${p.id}','${m.id}')">
+              <td>${esc(m.name)}${m.note ? `<div class="faint">${esc(m.note)}</div>` : ''}</td>
+              <td class="num">${esc(m.qty)} ${esc(m.unit)}</td>
+              <td>${stageLabel(m.stage)}</td>
+              <td>${esc(m.supplier)}</td>
+              <td class="num">${m.cost ? money((parseFloat(m.cost) || 0) * (parseFloat(m.qty) || 1)) : ''}</td>
+            </tr>`).join('')}</tbody>
+          </table></div>
+          ${matCost ? `<div style="text-align:right;margin-top:10px" class="muted">Materials total: <b style="color:#fff">${money(matCost)}</b></div>` : ''}`
+          : empty('No materials recorded. Add the parts, pipe and refrigerant used on this job.')}
+        </section>
+
+        <h2 class="h-section">Installed equipment <button class="btn btn-ghost btn-sm" onclick="editEquipment('${p.id}')">${ICON.plus} Add</button></h2>
+        <section class="card">
+          ${equip.length ? `<div class="tbl-wrap"><table class="tbl">
+            <thead><tr><th>Equipment</th><th>Serial no.</th><th>Location</th><th>Installed</th><th>Warranty to</th></tr></thead>
+            <tbody>${equip.map(e => `<tr class="click" onclick="editEquipment('${p.id}','${e.id}')">
+              <td><b>${esc(e.brandModel) || '—'}</b><div class="faint">${esc(e.type)}</div></td>
+              <td>${esc(e.serial) || '—'}</td>
+              <td>${esc(e.location) || '—'}</td>
+              <td>${fmtDate(e.installed, true) || '—'}</td>
+              <td>${e.warrantyEnd ? fmtDate(e.warrantyEnd, true) + '<br>' + warrantyTag(e) : '—'}</td>
+            </tr>`).join('')}</tbody>
+          </table></div>` : empty('No equipment recorded. Add units with serial numbers and warranty dates.')}
+        </section>
+
+        <h2 class="h-section">Documents
+          <label class="btn btn-ghost btn-sm">${ICON.plus} Upload
+            <input type="file" multiple hidden onchange="addDocs('${p.id}', this.files)" />
+          </label>
+        </h2>
+        <section class="card">
+          ${docs.length ? `<div class="rows">${docs.map(d => `<div class="brow" style="align-items:center">
+            <span class="doc-icon">${ICON.file}</span>
+            <div class="brow-main">
+              <a class="brow-title" href="#" onclick="event.preventDefault(); openDoc('${p.id}','${d.id}')">${esc(d.name)}</a>
+              <div class="muted">${esc(d.category)} · ${fmtSize(d.size)} · ${fmtDate(isoOf(new Date(d.at)))}</div>
+            </div>
+            <button class="icon-btn" title="Edit" onclick="editDoc('${p.id}','${d.id}')">${ICON.edit}</button>
+          </div>`).join('')}</div>` : empty('No documents. Upload plans, permits, compliance certificates and quotes.')}
+        </section>
+
+        <h2 class="h-section">Labour</h2>
+        <section class="card">
+          ${totalHours ? `<div class="tbl-wrap"><table class="tbl">
+            <thead><tr><th>Crew</th>${STAGES.map(s => `<th class="num">${s.label}</th>`).join('')}<th class="num">Total</th></tr></thead>
+            <tbody>${Object.entries(hoursBy).map(([cid, h]) => `<tr>
+              <td>${esc(getCrew(cid)?.name || 'Removed crew member')}</td>
+              ${STAGES.map(s => `<td class="num">${h[s.key] ? h[s.key] + ' h' : ''}</td>`).join('')}
+              <td class="num"><b>${h.total} h</b></td></tr>`).join('')}
+            </tbody>
+          </table></div>
+          <div style="text-align:right;margin-top:10px" class="muted">Total: <b style="color:#fff">${totalHours} h</b></div>`
+          : empty('No time logged yet. Log hours inside each stage.')}
+        </section>
+
+        <div style="margin-top:28px"><button class="btn btn-danger" onclick="deleteProject('${p.id}')">Delete project</button></div>`;
+    }
+
+    /* ══════════ Stage detail ══════════ */
+
+    function stageView(p, key) {
+      const s = STAGES.find(x => x.key === key);
+      if (!s) return notFound();
+      const st = p.stages[key];
+      const pr = checkProgress(st);
+      const myClashes = clashes().filter(c => (c.a.p === p && c.a.s.key === key) || (c.b.p === p && c.b.s.key === key));
+      const crew = state.crew.filter(c => c.active !== false || st.crew.includes(c.id));
+      const totalHours = st.time.reduce((n, t) => n + (parseFloat(t.hours) || 0), 0);
+      const P = `'${p.id}','${key}'`;
+
+      return `
+        <a class="back" href="#/project/${p.id}">${ICON.back} ${esc(p.name)}</a>
+        <div class="page-head">
+          <div>
+            <div class="faint" style="margin-bottom:6px">${esc(p.jobNo)} · ${esc(p.address)}</div>
+            <h1 class="page-title" style="display:flex;align-items:center;gap:12px"><span class="dot" style="background:${s.color};width:14px;height:14px"></span>${s.label}</h1>
+          </div>
+          <a class="btn btn-ghost btn-sm" href="#/project/${p.id}/report/${key}">${ICON.print} Stage report</a>
+        </div>
+        <div class="stage-switch">
+          ${STAGES.map(x => `<a class="tab ${x.key === key ? 'active' : ''}" href="#/project/${p.id}/stage/${x.key}">${x.label}</a>`).join('')}
+        </div>
+
+        <div class="grid2">
+          <section class="card">
+            <h2>Status & schedule</h2>
+            <div class="seg" style="margin-bottom:16px">
+              ${STAGE_STATUS.map(v => `<button class="${st.status === v ? 'on' : ''}" onclick="setStageStatus(${P},'${v}')">${v}</button>`).join('')}
+            </div>
+            <div class="fgrid">
+              <div><label class="lbl">Start date</label><input type="date" value="${st.start}" onchange="setStageField(${P},'start',this.value,true)" /></div>
+              <div><label class="lbl">End date</label><input type="date" value="${st.end}" min="${st.start}" onchange="setStageField(${P},'end',this.value,true)" /></div>
+              <div><label class="lbl">Estimated hours</label><input type="number" step="0.25" min="0" value="${esc(st.estHours || '')}" placeholder="${defaultStageHours(p, key)}" onchange="setStageField(${P},'estHours',this.value,true)" /></div>
+              <div><label class="lbl">Hours logged</label><div style="padding:12px 4px" class="${parseFloat(st.estHours) && totalHours > parseFloat(st.estHours) ? 'over' : ''}">${fmtH(totalHours)}${parseFloat(st.estHours) ? ' of ' + fmtH(parseFloat(st.estHours)) : ''}</div></div>
+            </div>
+            ${st.start && holidaysBetween(st.start, st.end || st.start).length ? `<div class="faint" style="margin-top:12px">Non-working days in this stage: ${holidaysBetween(st.start, st.end || st.start).map(([d, n]) => `${esc(n)} (${fmtDate(d)})`).join(', ')}</div>` : ''}
+            <label class="lbl" style="margin-top:16px">Assigned crew</label>
+            ${crew.length ? `<div class="chips">${crew.map(c => `<button class="chip ${st.crew.includes(c.id) ? 'on' : ''}" onclick="toggleCrew(${P},'${c.id}')">${esc(c.name)}</button>`).join('')}</div>`
+              : `<div class="empty">No crew yet. <a href="#/crew" style="color:var(--c-cyan)">Add crew members</a> to assign them.</div>`}
+            ${myClashes.length ? `<div class="warn-box">${myClashes.map(c => {
+              const other = c.a.p === p && c.a.s.key === key ? c.b : c.a;
+              return `<div><b>${esc(getCrew(c.cid)?.name)}</b> is also booked on ${esc(other.p.name)} (${other.s.label}), ${dateRange(other.start, other.end)}</div>`;
+            }).join('')}</div>` : ''}
+          </section>
+
+          <section class="card">
+            <h2>Notes</h2>
+            <textarea style="min-height:180px" placeholder="Site notes, access, issues, variations…" oninput="setStageField(${P},'notes',this.value)">${esc(st.notes)}</textarea>
+          </section>
+        </div>
+
+        <section class="card" style="margin-top:12px">
+          <h2>Checklist <span class="muted">${pr.done} of ${pr.total}</span></h2>
+          <div class="progress" style="margin-bottom:8px"><i style="width:${pr.pct}%;background:${s.color}"></i></div>
+          <div class="rows">${st.checklist.map(i => `<div class="check ${i.done ? 'done' : ''}">
+            <input type="checkbox" ${i.done ? 'checked' : ''} onchange="toggleCheck(${P},'${i.id}')" />
+            <div class="check-text">${esc(i.text)}${i.done && i.doneAt ? `<div class="faint">Ticked ${fmtTime(i.doneAt)}</div>` : ''}</div>
+            <button class="icon-btn" title="Remove item" onclick="delItem(${P},'checklist','${i.id}')">${ICON.x}</button>
+          </div>`).join('')}</div>
+          <form class="add-row" onsubmit="event.preventDefault(); addCheck(${P}, this.item)">
+            <input name="item" placeholder="Add a checklist item" />
+            <button class="btn btn-ghost">Add</button>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Photos
+            <label class="btn btn-ghost btn-sm">${ICON.camera} Add photos
+              <input type="file" accept="image/*" multiple hidden onchange="addPhotos(${P}, this.files)" />
+            </label>
+          </h2>
+          ${st.photos.length ? `<div class="photos">${st.photos.map(ph => `<button onclick="openPhoto(${P},'${ph.id}')"><img data-photo="${ph.id}" alt="${esc(ph.caption)}" /></button>`).join('')}</div>` : empty('No photos yet.')}
+        </section>
+
+        <section class="card">
+          <h2>Readings & tests</h2>
+          ${st.readings.length ? `<div class="tbl-wrap"><table class="tbl">
+            <thead><tr><th>Reading</th><th class="num">Value</th><th>Recorded</th><th></th></tr></thead>
+            <tbody>${st.readings.map(r => `<tr>
+              <td>${esc(r.type)}${r.note ? `<div class="faint">${esc(r.note)}</div>` : ''}</td>
+              <td class="num"><b>${esc(r.value)}</b> ${esc(r.unit)}</td>
+              <td class="muted">${fmtTime(r.at)}${r.by ? '<br>' + esc(getCrew(r.by)?.name || '') : ''}</td>
+              <td class="num"><button class="icon-btn" onclick="delItem(${P},'readings','${r.id}')">${ICON.x}</button></td>
+            </tr>`).join('')}</tbody>
+          </table></div>` : empty('No readings recorded. Log pressures, temperatures, airflow and test results here.')}
+          <form class="inline-form" onsubmit="event.preventDefault(); addReading(${P}, this)">
+            <select name="rtype" onchange="this.form.unit.value = READINGS[this.value] ?? ''">
+              ${Object.keys(READINGS).map(k => `<option>${k}</option>`).join('')}
+            </select>
+            <input name="value" placeholder="Value" required />
+            <input name="unit" placeholder="Unit" value="${READINGS['Suction pressure']}" />
+            <select name="by"><option value="">Recorded by…</option>${activeCrew().map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
+            <input name="note" placeholder="Note (optional)" style="grid-column: span 2" />
+            <button class="btn btn-ghost fwide">Add reading</button>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Time log <span class="muted">${totalHours} h total</span></h2>
+          ${st.time.length ? `<div class="tbl-wrap"><table class="tbl">
+            <thead><tr><th>Date</th><th>Crew</th><th class="num">Hours</th><th>Note</th><th></th></tr></thead>
+            <tbody>${[...st.time].sort((a, b) => b.date.localeCompare(a.date)).map(t => `<tr>
+              <td>${fmtDate(t.date)}</td>
+              <td>${esc(getCrew(t.crewId)?.name || 'Removed')}</td>
+              <td class="num">${esc(t.hours)}</td>
+              <td class="muted">${esc(t.note)}</td>
+              <td class="num"><button class="icon-btn" onclick="delItem(${P},'time','${t.id}')">${ICON.x}</button></td>
+            </tr>`).join('')}</tbody>
+          </table></div>` : empty('No time logged.')}
+          ${activeCrew().length ? `<form class="inline-form" onsubmit="event.preventDefault(); addTime(${P}, this)">
+            <select name="crewId" required>
+              ${activeCrew().map(c => `<option value="${c.id}" ${st.crew[0] === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+            </select>
+            <input type="date" name="date" value="${today()}" required />
+            <input type="number" name="hours" placeholder="Hours" step="0.25" min="0" required />
+            <input name="note" placeholder="What was done (optional)" class="fwide" />
+            <button class="btn btn-ghost fwide">Log time</button>
+          </form>` : `<div class="empty">Add crew members to log time.</div>`}
+        </section>
+
+        <section class="card">
+          <h2>Sign-off</h2>
+          ${st.signoff ? `
+            <div>Signed by <b>${esc(st.signoff.name)}</b> on ${fmtDate(st.signoff.date, true)}</div>
+            <img class="sig-img" src="${st.signoff.sig}" alt="Signature" />
+            <button class="btn btn-danger btn-sm" onclick="clearSignoff(${P})">Remove sign-off</button>`
+          : `
+            <p class="muted" style="margin-bottom:12px">Customer or builder signs here to accept the ${s.label.toLowerCase()} work.</p>
+            <label class="lbl">Name</label>
+            <input id="sig-name" placeholder="Full name" style="margin-bottom:12px" />
+            <label class="lbl">Signature</label>
+            <canvas class="sigpad" id="sigpad"></canvas>
+            <div class="btn-row" style="margin-top:12px">
+              <button class="btn" onclick="saveSignoff(${P})">Save sign-off</button>
+              <button class="btn btn-ghost" onclick="initSig($('sigpad'))">Clear</button>
+            </div>`}
+        </section>`;
+    }
+
+    /* ── Stage actions ── */
+
+    function stageOf(pid, key) { return getP(pid).stages[key]; }
+
+    function setStageStatus(pid, key, val) {
+      const p = getP(pid);
+      p.stages[key].status = val;
+      if (val === 'Complete' && p.status !== 'Complete' && STAGES.every(s => p.stages[s.key].status === 'Complete')
+          && confirm('All three stages are complete. Mark the whole project as complete?')) {
+        p.status = 'Complete';
+      }
+      save(); render();
+    }
+
+    function setStageField(pid, key, field, val, rerender) {
+      const p = getP(pid);
+      const st = p.stages[key];
+      const oldEnd = st.end || st.start;
+      st[field] = val;
+      if (field === 'start' && st.end && st.end < val) st.end = val;
+
+      /* Offer to slide the later stages by the same number of working days */
+      const newEnd = st.end || st.start;
+      if ((field === 'start' || field === 'end') && oldEnd && newEnd) {
+        const delta = workDaysBetween(oldEnd, newEnd);
+        const later = STAGES.slice(STAGES.findIndex(s => s.key === key) + 1)
+          .map(s => p.stages[s.key]).filter(x => x.start && x.status !== 'Complete');
+        if (delta && later.length && confirm(`Move the later stages ${Math.abs(delta)} working day${Math.abs(delta) === 1 ? '' : 's'} ${delta > 0 ? 'later' : 'earlier'} too?`)) {
+          later.forEach(x => {
+            x.start = shiftWorkDays(x.start, delta);
+            if (x.end) x.end = shiftWorkDays(x.end, delta);
+          });
+        }
+      }
+      save();
+      if (rerender) render();
+    }
+
+    function toggleCrew(pid, key, cid) {
+      const st = stageOf(pid, key);
+      st.crew = st.crew.includes(cid) ? st.crew.filter(c => c !== cid) : [...st.crew, cid];
+      save(); render();
+    }
+
+    function toggleCheck(pid, key, id) {
+      const item = stageOf(pid, key).checklist.find(i => i.id === id);
+      item.done = !item.done;
+      item.doneAt = item.done ? Date.now() : null;
+      const st = stageOf(pid, key);
+      if (item.done && st.status === 'Not started') st.status = 'In progress';
+      save(); render();
+    }
+
+    function addCheck(pid, key, input) {
+      const text = input.value.trim();
+      if (!text) return;
+      stageOf(pid, key).checklist.push({ id: uid(), text, done: false });
+      save(); render();
+    }
+
+    function delItem(pid, key, list, id) {
+      const st = stageOf(pid, key);
+      if (!confirm('Remove this entry?')) return;
+      st[list] = st[list].filter(x => x.id !== id);
+      save(); render();
+    }
+
+    function addReading(pid, key, f) {
+      stageOf(pid, key).readings.push({
+        id: uid(), type: f.rtype.value, value: f.value.value.trim(), unit: f.unit.value.trim(),
+        by: f.by.value, note: f.note.value.trim(), at: Date.now()
+      });
+      save(); render(); toast('Reading saved');
+    }
+
+    function addTime(pid, key, f) {
+      stageOf(pid, key).time.push({ id: uid(), crewId: f.crewId.value, date: f.date.value, hours: f.hours.value, note: f.note.value.trim() });
+      save(); render(); toast('Time logged');
+    }
+
+    async function addPhotos(pid, key, files) {
+      const st = stageOf(pid, key);
+      toast('Saving photos…');
+      for (const file of files) {
+        try {
+          const data = await compressImage(file);
+          const id = uid();
+          await idb('photos', 'readwrite', s => s.put(data, id));
+          photoCache.set(id, data);
+          queueUpload('photos', id);
+          st.photos.push({ id, caption: '', at: Date.now() });
+        } catch (err) {
+          console.error(err);
+          toast('A photo could not be saved');
+        }
+      }
+      save(); render(); toast(files.length === 1 ? 'Photo added' : files.length + ' photos added');
+    }
+
+    function openPhoto(pid, key, phid) {
+      const ph = stageOf(pid, key).photos.find(x => x.id === phid);
+      showModal(`
+        <div class="lightbox"><img data-photo="${ph.id}" alt="" /></div>
+        <label class="lbl" style="margin-top:14px">Caption</label>
+        <input id="ph-caption" value="${esc(ph.caption)}" placeholder="e.g. Pipe run in roof space" />
+        <div class="faint" style="margin-top:8px">Added ${fmtTime(ph.at)}</div>
+        <div class="modal-actions">
+          <button class="btn" onclick="savePhotoCaption('${pid}','${key}','${ph.id}')">Save</button>
+          <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+          <span class="spacer"></span>
+          <button class="btn btn-danger" onclick="deletePhoto('${pid}','${key}','${ph.id}')">Delete</button>
+        </div>`);
+      loadPhotos();
+    }
+
+    function savePhotoCaption(pid, key, phid) {
+      stageOf(pid, key).photos.find(x => x.id === phid).caption = $('ph-caption').value.trim();
+      save(); closeModal(); render();
+    }
+
+    async function deletePhoto(pid, key, phid) {
+      if (!confirm('Delete this photo?')) return;
+      const st = stageOf(pid, key);
+      st.photos = st.photos.filter(x => x.id !== phid);
+      await idb('photos', 'readwrite', s => s.delete(phid));
+      photoCache.delete(phid);
+      removeRemoteFile('photos', phid);
+      save(); closeModal(); render();
+    }
+
+    /* ── Signature pad ── */
+
+    function initSig(c) {
+      const r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+      c.width = r.width * dpr;
+      c.height = r.height * dpr;
+      const ctx = c.getContext('2d');
+      ctx.scale(dpr, dpr);
+      ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#111';
+      c.dataset.ink = '';
+      let drawing = false;
+      const pos = e => { const b = c.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
+      c.onpointerdown = e => {
+        drawing = true;
+        c.setPointerCapture(e.pointerId);
+        const [x, y] = pos(e);
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 0.1, y + 0.1); ctx.stroke();
+        c.dataset.ink = '1';
+      };
+      c.onpointermove = e => { if (!drawing) return; const [x, y] = pos(e); ctx.lineTo(x, y); ctx.stroke(); };
+      c.onpointerup = c.onpointercancel = () => { drawing = false; };
+    }
+
+    function saveSignoff(pid, key) {
+      const name = $('sig-name').value.trim();
+      const c = $('sigpad');
+      if (!name) { toast('Enter the signer’s name'); return; }
+      if (!c.dataset.ink) { toast('Please sign in the box'); return; }
+      const st = stageOf(pid, key);
+      const pr = checkProgress(st);
+      if (pr.done < pr.total && !confirm(`Only ${pr.done} of ${pr.total} checklist items are ticked. Sign off anyway?`)) return;
+      st.signoff = { name, date: today(), sig: c.toDataURL('image/png') };
+      if (st.status !== 'Complete' && confirm('Signed off. Mark this stage as complete too?')) {
+        setStageStatus(pid, key, 'Complete');
+        return;
+      }
+      save(); render();
+    }
+
+    function clearSignoff(pid, key) {
+      if (!confirm('Remove this sign-off?')) return;
+      stageOf(pid, key).signoff = null;
+      save(); render();
+    }
+
+    /* ══════════ Schedule ══════════ */
+
+    function scheduleHead() {
+      return `<div class="page-head"><h1 class="page-title">Schedule</h1>
+        <div class="seg">${[['month', 'Month'], ['timeline', 'Timeline']].map(([v, l]) =>
+          `<button class="${ui.schedView === v ? 'on' : ''}" onclick="ui.schedView='${v}'; render()">${l}</button>`).join('')}</div>
+      </div>`;
+    }
+
+    /* Milestones and deadlines falling on a given day (hidden when filtering by crew) */
+    function marksOn(d) {
+      if (ui.calCrew) return [];
+      return state.projects.filter(p => p.status !== 'Complete').flatMap(p => [
+        ...p.milestones.filter(m => m.date === d).map(m => ({ p, title: m.title, color: msColor(m) })),
+        ...(p.deadline === d ? [{ p, title: 'Deadline / handover', color: 'var(--c-red)' }] : [])
+      ]);
+    }
+
+    function scheduleView() {
+      if (ui.schedView === 'timeline') return scheduleHead() + timelineView();
+      const [y, m] = ui.calMonth.split('-').map(Number);
+      const first = new Date(y, m - 1, 1);
+      const startOffset = (first.getDay() + 6) % 7; /* Monday first */
+      const gridStart = isoOf(new Date(y, m - 1, 1 - startOffset));
+      const daysInMonth = new Date(y, m, 0).getDate();
+      const cells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+      const t = today();
+      const all = bookings().filter(b => b.p.status !== 'Complete' && (!ui.calCrew || b.crew.includes(ui.calCrew)));
+      const on = d => all.filter(b => b.start <= d && b.end >= d);
+      const monthName = first.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
+
+      let grid = '';
+      for (let i = 0; i < cells; i++) {
+        const d = addDays(gridStart, i);
+        const bs = on(d);
+        const hol = holidayOn(d);
+        const cls = ['cal-day', d.slice(0, 7) !== ui.calMonth && 'other', d === t && 'today', d === ui.selDay && 'sel', hol && 'hol'].filter(Boolean).join(' ');
+        grid += `<button class="${cls}" onclick="ui.selDay='${d}'; render()" ${hol ? `title="${esc(hol)}"` : ''}>
+          <span class="dnum">${Number(d.slice(8))}</span>
+          ${hol ? `<span class="cal-hol">${esc(hol)}</span>` : ''}
+          ${bs.slice(0, 3).map(b => `<span class="cal-chip" style="background:${b.s.color}${b.st.status === 'Complete' ? ';opacity:.4' : ''}">${esc(b.p.name)}</span>`).join('')}
+          ${bs.length > 3 ? `<span class="cal-more">+${bs.length - 3}</span>` : ''}
+          ${marksOn(d).slice(0, 2).map(mk => `<span class="cal-chip cal-mark" style="color:${mk.color}">◆ ${esc(mk.p.name)}</span>`).join('')}
+        </button>`;
+      }
+
+      const dayList = on(ui.selDay);
+      const unscheduled = [];
+      state.projects.filter(p => p.status === 'Active').forEach(p => STAGES.forEach(s => {
+        const st = p.stages[s.key];
+        if (!st.start && st.status !== 'Complete') unscheduled.push({ p, s, st, crew: st.crew });
+      }));
+
+      return `
+        ${scheduleHead()}
+        <section class="card">
+          <div class="cal-head">
+            <button class="icon-btn" onclick="shiftMonth(-1)" title="Previous month">${ICON.left}</button>
+            <span class="month">${monthName}</span>
+            <button class="icon-btn" onclick="shiftMonth(1)" title="Next month">${ICON.right}</button>
+            <button class="btn btn-ghost btn-sm" onclick="ui.calMonth='${t.slice(0, 7)}'; ui.selDay='${t}'; render()">Today</button>
+            <select onchange="ui.calCrew=this.value; render()">
+              <option value="">All crew</option>
+              ${state.crew.map(c => `<option value="${c.id}" ${ui.calCrew === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="cal">
+            ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => `<div class="cal-dow">${d}</div>`).join('')}
+            ${grid}
+          </div>
+          <div class="legend">${STAGES.map(s => `<span><span class="dot" style="background:${s.color}"></span>${s.label}</span>`).join('')}<span><span class="ms-key"></span>Milestone / deadline</span></div>
+        </section>
+        <div class="grid2" style="margin-top:12px">
+          <section class="card">
+            <h2>${fmtDate(ui.selDay, true)} ${holidayOn(ui.selDay) ? `<span class="tag tag-warn">${esc(holidayOn(ui.selDay))}</span>` : ''}</h2>
+            <div class="rows">${dayList.length || marksOn(ui.selDay).length
+              ? marksOn(ui.selDay).map(mk => `<a class="brow" href="#/project/${mk.p.id}">
+                  <span class="ms-key" style="background:${mk.color};margin-top:6px"></span>
+                  <div class="brow-main"><div class="brow-title">${esc(mk.p.name)} · ${esc(mk.title)}</div><div class="muted">Milestone</div></div>
+                </a>`).join('') + dayList.map(bookingRow).join('')
+              : empty('Nothing booked on this day.')}</div>
+          </section>
+          <section class="card">
+            <h2>Not yet scheduled <span class="muted">${unscheduled.length}</span></h2>
+            <div class="rows">${unscheduled.length ? unscheduled.map(u => `<a class="brow" href="#/project/${u.p.id}/stage/${u.s.key}">
+              <span class="dot" style="background:${u.s.color}"></span>
+              <div class="brow-main"><div class="brow-title">${esc(u.p.name)} · ${u.s.label}</div><div class="muted">${esc(u.p.jobNo)} · tap to set dates and crew</div></div>
+            </a>`).join('') : empty('Every open stage has dates.')}</div>
+          </section>
+        </div>`;
+    }
+
+    function shiftMonth(n) {
+      const [y, m] = ui.calMonth.split('-').map(Number);
+      const d = new Date(y, m - 1 + n, 1);
+      ui.calMonth = isoOf(d).slice(0, 7);
+      ui.selDay = ui.calMonth === today().slice(0, 7) ? today() : isoOf(d);
+      render();
+    }
+
+    /* ══════════ Crew ══════════ */
+
+    function crewView() {
+      const t = today();
+      const bs = bookings().filter(b => b.st.status !== 'Complete' && b.p.status !== 'Complete' && b.end >= t);
+      const hours = {};
+      state.projects.forEach(p => STAGES.forEach(s => p.stages[s.key].time.forEach(x => {
+        hours[x.crewId] = (hours[x.crewId] || 0) + (parseFloat(x.hours) || 0);
+      })));
+      const sorted = [...state.crew].sort((a, b) => (a.active === false) - (b.active === false) || a.name.localeCompare(b.name));
+
+      return `
+        <div class="page-head">
+          <h1 class="page-title">Crew</h1>
+          <button class="btn btn-ghost" onclick="editCrew()">${ICON.plus} Add crew member</button>
+        </div>
+        ${sorted.length ? `<div class="plist">${sorted.map(c => {
+          const mine = bs.filter(b => b.crew.includes(c.id));
+          return `<div class="card" style="margin-top:0${c.active === false ? ';opacity:.5' : ''}">
+            <h2>${esc(c.name)} <button class="icon-btn" onclick="editCrew('${c.id}')" title="Edit">${ICON.edit}</button></h2>
+            <div class="muted">${esc(c.role)}${c.active === false ? ' · Inactive' : ''}</div>
+            ${c.phone ? `<div style="margin-top:6px"><a style="color:var(--c-cyan)" href="tel:${esc(c.phone.replace(/\s/g, ''))}">${esc(c.phone)}</a></div>` : ''}
+            ${c.licences ? `<div class="faint" style="margin-top:6px">${esc(c.licences)}</div>` : ''}
+            <div class="faint" style="margin-top:6px">${fmtH(hours[c.id] || 0)} logged · ${c.costRate ? money(c.costRate) + '/h' : 'default rate'}</div>
+            <div class="rows" style="margin-top:10px">${mine.length ? mine.slice(0, 4).map(bookingRow).join('') : empty('No upcoming bookings')}</div>
+          </div>`;
+        }).join('')}</div>` : `<section class="card">${empty('No crew yet. Add technicians, plumbers and apprentices so you can assign them to project stages.')}</section>`}`;
+    }
+
+    function editCrew(id) {
+      const c = id ? getCrew(id) : { name: '', role: 'Technician', phone: '', licences: '', active: true };
+      openForm({
+        title: id ? 'Edit crew member' : 'Add crew member',
+        fields: [
+          { name: 'name', label: 'Name', value: c.name, required: true },
+          { name: 'role', label: 'Role', value: c.role, options: CREW_ROLES },
+          { name: 'phone', label: 'Phone', value: c.phone, type: 'tel' },
+          { name: 'active', label: 'Status', value: c.active === false ? 'Inactive' : 'Active', options: ['Active', 'Inactive'] },
+          { name: 'costRate', label: 'Labour cost rate ($/h)', value: c.costRate, type: 'number', step: '0.01', placeholder: `Default ${money(state.settings.labourCost || 0)}` },
+          { name: 'licences', label: 'Licences & certifications', value: c.licences, wide: true, placeholder: 'e.g. ARCtick RHL L123456, Plumbing licence 12345' }
+        ],
+        onSave: v => {
+          const data = { ...v, active: v.active === 'Active' };
+          if (id) Object.assign(c, data);
+          else state.crew.push({ id: uid(), ...data });
+        },
+        onDelete: id && (() => {
+          if (!confirm(`Delete ${c.name}? They will be removed from all stage assignments. Logged time stays but shows as “Removed”.`)) return false;
+          state.crew = state.crew.filter(x => x.id !== id);
+          state.projects.forEach(p => STAGES.forEach(s => { p.stages[s.key].crew = p.stages[s.key].crew.filter(x => x !== id); }));
+        })
+      });
+    }
+
+    /* ══════════ Backup / settings ══════════ */
+
+    function settingsView() {
+      return `
+        <div class="page-head"><h1 class="page-title">Settings</h1></div>
+        <section class="card">
+          <h2>Costing</h2>
+          <p class="muted" style="margin-bottom:14px">Used to cost labour for crew members without their own rate. Use your all-in cost per hour (wages, super and on-costs), not the charge-out rate.</p>
+          <div class="fgrid">
+            <div><label class="lbl">Default labour cost ($/h)</label>
+              <input type="number" step="0.01" min="0" value="${esc(state.settings.labourCost)}" onchange="state.settings.labourCost = this.value; save(); toast('Saved')" /></div>
+          </div>
+        </section>
+        <section class="card">
+          <h2>Scheduling</h2>
+          <p class="muted" style="margin-bottom:14px">Defaults used by Plan timeline to turn estimated hours into working days.</p>
+          <div class="fgrid">
+            <div><label class="lbl">Working hours per person per day</label>
+              <input type="number" step="0.5" min="1" value="${esc(state.settings.hoursPerDay)}" onchange="state.settings.hoursPerDay = this.value; save(); toast('Saved')" /></div>
+            <div><label class="lbl">Working days</label>
+              <select onchange="state.settings.workDays = this.value === '6' ? [1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 5]; save(); toast('Saved')">
+                <option value="5">Monday – Friday</option>
+                <option value="6" ${state.settings.workDays.includes(6) ? 'selected' : ''}>Monday – Saturday</option>
+              </select></div>
+            <div><label class="lbl">Lead time Planning → Rough-in (working days)</label>
+              <input type="number" min="0" step="1" value="${esc(state.settings.gaps.planning)}" onchange="state.settings.gaps.planning = parseInt(this.value, 10) || 0; save(); toast('Saved')" /></div>
+            <div><label class="lbl">Lead time Rough-in → Fit-off (working days)</label>
+              <input type="number" min="0" step="1" value="${esc(state.settings.gaps.roughin)}" onchange="state.settings.gaps.roughin = parseInt(this.value, 10) || 0; save(); toast('Saved')" /></div>
+          </div>
+        </section>
+        <section class="card">
+          <h2>Public holidays & shutdowns</h2>
+          <p class="muted" style="margin-bottom:12px">Plan timeline skips these days. Grand Final Friday is estimated as the day before the last Saturday in September — if the AFL sets a different date, add it as a shutdown day.</p>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <label class="toggle"><input type="checkbox" ${state.settings.holidays !== false ? 'checked' : ''} onchange="state.settings.holidays = this.checked; save(); render()" /> Skip Victorian public holidays</label>
+            <label class="toggle"><input type="checkbox" ${state.settings.cupDay !== false ? 'checked' : ''} onchange="state.settings.cupDay = this.checked; save(); render()" /> Include Melbourne Cup Day (metro Melbourne)</label>
+          </div>
+
+          <h3 class="lbl" style="margin:20px 4px 6px">Company shutdowns</h3>
+          <div class="rows">${state.settings.closures.length ? [...state.settings.closures].sort((a, b) => a.from.localeCompare(b.from)).map(c => `<div class="brow" style="align-items:center">
+            <div class="brow-main"><div class="brow-title">${esc(c.name)}</div><div class="muted">${dateRange(c.from, c.to)}</div></div>
+            <button class="icon-btn" title="Remove" onclick="delClosure('${c.id}')">${ICON.x}</button>
+          </div>`).join('') : empty('None. Add your Christmas shutdown or other days the business is closed.')}</div>
+          <form class="inline-form" onsubmit="event.preventDefault(); addClosure(this)">
+            <input name="cname" placeholder="e.g. Christmas shutdown" required />
+            <input type="date" name="from" required />
+            <input type="date" name="to" />
+            <button class="btn btn-ghost fwide">Add shutdown</button>
+          </form>
+
+          <h3 class="lbl" style="margin:20px 4px 6px">Coming up (next 12 months)</h3>
+          <div class="rows">${upcomingHolidays().map(([from, to, n]) => `<div class="brow" style="padding:8px 0">
+            <div class="brow-main">${esc(n)}</div>
+            <div class="muted">${from === to ? new Date(from + 'T00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : dateRange(from, to)}</div>
+          </div>`).join('') || empty('No holidays or shutdowns.')}</div>
+        </section>
+        ${CLOUD ? `<section class="card">
+          <h2>Shared database</h2>
+          <p class="muted">Projects, crew, photos and documents sync between everyone’s devices. Changes made without signal are kept on this device and sent when it’s back online.</p>
+          <div class="info-grid" style="margin-top:18px">
+            <div><div class="k">Signed in as</div>${esc(session?.user?.email || '')}</div>
+            <div><div class="k">Waiting to send</div>${pendingKeys().length} change(s) · ${sync.uploads.length} file(s)</div>
+            <div><div class="k">Projects</div>${state.projects.length}</div>
+            <div><div class="k">Storage used on this device</div><span id="storage-used">…</span></div>
+          </div>
+          <div class="btn-row" style="margin-top:18px">
+            <button class="btn btn-ghost" onclick="syncNow()">Sync now</button>
+            <button class="btn btn-danger" onclick="signOut()">Sign out</button>
+          </div>
+        </section>
+        <section class="card">
+          <h2>Backup</h2>
+          <p class="muted" style="margin-bottom:14px">Downloads a copy of all shared projects and crew. Photos and documents are included if they’ve been opened on this device.</p>
+          <button class="btn" onclick="exportBackup()">Export backup</button>
+        </section>` : `<section class="card">
+          <h2>Data on this device</h2>
+          <p class="muted" style="margin-bottom:12px">All projects, crew and photos are stored only in this browser on this device. Other phones and computers won’t see them, and clearing browser data will erase them.</p>
+          <p class="muted">To keep data safe, export a backup regularly. To move data to another device, export here and import it there.</p>
+          <div class="info-grid" style="margin-top:18px">
+            <div><div class="k">Projects</div>${state.projects.length}</div>
+            <div><div class="k">Crew</div>${state.crew.length}</div>
+            <div><div class="k">Last backup</div>${state.lastBackup ? fmtDate(state.lastBackup, true) : 'Never'}</div>
+            <div><div class="k">Storage used</div><span id="storage-used">…</span></div>
+          </div>
+        </section>
+        <section class="card">
+          <h2>Export & import</h2>
+          <div class="btn-row">
+            <button class="btn" onclick="exportBackup()">Export backup</button>
+            <label class="btn btn-ghost">Import backup
+              <input type="file" accept="application/json,.json" hidden onchange="importBackup(this.files[0])" />
+            </label>
+          </div>
+          <p class="faint" style="margin-top:12px">Importing replaces everything currently on this device.</p>
+        </section>
+        <section class="card">
+          <h2>Erase all data</h2>
+          <p class="muted" style="margin-bottom:14px">Deletes every project, crew member and photo from this device. Export a backup first.</p>
+          <button class="btn btn-danger" onclick="eraseAll()">Erase all data</button>
+        </section>`}`;
+    }
+
+    function addClosure(f) {
+      const from = f.from.value, to = f.to.value && f.to.value >= from ? f.to.value : from;
+      state.settings.closures.push({ id: uid(), name: f.cname.value.trim(), from, to });
+      save(); render(); toast('Shutdown added');
+    }
+
+    function delClosure(id) {
+      state.settings.closures = state.settings.closures.filter(c => c.id !== id);
+      save(); render();
+    }
+
+    function upcomingHolidays() {
+      const t = today(), end = addDays(t, 365);
+      /* [from, to, name] — consecutive days with the same name (a shutdown) become one row */
+      const out = [];
+      for (let d = t; d <= end; d = addDays(d, 1)) {
+        const n = holidayOn(d);
+        if (!n) continue;
+        const last = out[out.length - 1];
+        if (last && last[2] === n && last[1] === addDays(d, -1)) last[1] = d;
+        else out.push([d, d, n]);
+      }
+      return out.filter(([from, to]) => holidaysBetween(from, to).length);
+    }
+
+    async function showStorageUsed() {
+      const el = $('storage-used');
+      if (!el) return;
+      if (!navigator.storage?.estimate) { el.textContent = 'Unknown'; return; }
+      const { usage } = await navigator.storage.estimate();
+      el.textContent = usage > 1048576 ? (usage / 1048576).toFixed(1) + ' MB' : Math.round(usage / 1024) + ' KB';
+    }
+
+    /* Share sheet on phones (save to Files, email…), plain download elsewhere. False if cancelled. */
+    async function saveFile(file) {
+      if (matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: file.name }); } catch (err) { if (err.name === 'AbortError') return false; }
+        return true;
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(file);
+      a.download = file.name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      return true;
+    }
+
+    async function exportBackup() {
+      toast('Preparing backup…');
+      const photos = Object.fromEntries(await idbAll('photos'));
+      const files = {};
+      for (const [k, blob] of await idbAll('files')) files[k] = await blobToDataURL(blob);
+      const json = JSON.stringify({ app: 'hcm-projects', version: 1, exported: new Date().toISOString(), state: { ...state, lastBackup: today() }, photos, files });
+      const file = new File([json], `hcm-projects-backup-${today()}.json`, { type: 'application/json' });
+      if (!(await saveFile(file))) return;
+      state.lastBackup = today();
+      save(); render();
+    }
+
+    async function importBackup(file) {
+      if (!file) return;
+      let data;
+      try {
+        data = JSON.parse(await file.text());
+        if (data.app !== 'hcm-projects' || !Array.isArray(data.state?.projects)) throw new Error('bad file');
+      } catch {
+        toast('That file is not an HCM Projects backup');
+        return;
+      }
+      if (!confirm(`Replace all data on this device with the backup from ${new Date(data.exported).toLocaleString('en-AU')} (${data.state.projects.length} projects)?`)) return;
+      await idb('photos', 'readwrite', s => {
+        s.clear();
+        Object.entries(data.photos || {}).forEach(([k, v]) => s.put(v, k));
+      });
+      const files = await Promise.all(Object.entries(data.files || {}).map(async ([k, v]) => [k, await (await fetch(v)).blob()]));
+      await idb('files', 'readwrite', s => {
+        s.clear();
+        files.forEach(([k, b]) => s.put(b, k));
+      });
+      photoCache.clear();
+      state = normalize(data.state);
+      await idb('kv', 'readwrite', s => s.put(state, 'state'));
+      toast('Backup imported');
+      location.hash = '#/';
+      render();
+    }
+
+    async function eraseAll() {
+      if (prompt('This deletes everything on this device. Type ERASE to confirm.') !== 'ERASE') return;
+      await idb('photos', 'readwrite', s => s.clear());
+      await idb('files', 'readwrite', s => s.clear());
+      photoCache.clear();
+      state = normalize({ version: 1, projects: [], crew: [], lastBackup: '', settings: state.settings });
+      await idb('kv', 'readwrite', s => s.put(state, 'state'));
+      toast('All data erased');
+      location.hash = '#/';
+      render();
+    }
+
+    /* ══════════ Project / material / equipment forms ══════════ */
+
+    function projectFields(p) {
+      const c = p.customer || {};
+      return [
+        { name: 'jobNo', label: 'Job number', value: p.jobNo, required: true },
+        { name: 'trade', label: 'Trade', value: p.trade, options: TRADES },
+        { name: 'name', label: 'Project name', value: p.name, required: true, wide: true, placeholder: 'e.g. Smith Residence — ducted install' },
+        { name: 'address', label: 'Site address', value: p.address, wide: true },
+        { name: 'custName', label: 'Customer name', value: c.name },
+        { name: 'custPhone', label: 'Customer phone', value: c.phone, type: 'tel' },
+        { name: 'custEmail', label: 'Customer email', value: c.email, type: 'email' },
+        { name: 'builder', label: 'Builder / client', value: p.builder },
+        { name: 'status', label: 'Project status', value: p.status, options: PROJECT_STATUS },
+        { name: 'deadline', label: 'Deadline / handover date', value: p.deadline, type: 'date' },
+        { name: 'contractValue', label: 'Contract value ($ ex GST)', value: p.contractValue, type: 'number', step: '0.01' },
+        { name: 'quotedHours', label: 'Quoted labour hours', value: p.quotedHours, type: 'number', step: '0.25' },
+        { name: 'materialsBudget', label: 'Materials budget ($)', value: p.materialsBudget, type: 'number', step: '0.01' },
+        { name: 'notes', label: 'Project notes', value: p.notes, type: 'textarea', wide: true, placeholder: 'Scope, equipment specs, access, special requirements…' }
+      ];
+    }
+
+    function applyProject(p, v) {
+      Object.assign(p, {
+        jobNo: v.jobNo.trim(), trade: v.trade, name: v.name.trim(), address: v.address.trim(),
+        builder: v.builder.trim(), status: v.status, notes: v.notes,
+        contractValue: v.contractValue, quotedHours: v.quotedHours, materialsBudget: v.materialsBudget, deadline: v.deadline,
+        customer: { name: v.custName.trim(), phone: v.custPhone.trim(), email: v.custEmail.trim() }
+      });
+    }
+
+    function newProject() {
+      openForm({
+        title: 'New project',
+        fields: projectFields({ jobNo: nextJobNo(), trade: 'HVAC', status: 'Active' }),
+        saveLabel: 'Create project',
+        onSave: v => {
+          const p = { id: uid(), created: Date.now(), materials: [], equipment: [], issues: [], docs: [], milestones: [], stages: {} };
+          applyProject(p, v);
+          STAGES.forEach(s => { p.stages[s.key] = newStage(p.trade, s.key); });
+          state.projects.push(p);
+          location.hash = '#/project/' + p.id;
+        }
+      });
+    }
+
+    function editProject(id) {
+      const p = getP(id);
+      openForm({
+        title: 'Edit project',
+        fields: projectFields(p),
+        onSave: v => applyProject(p, v)
+      });
+    }
+
+    async function deleteProject(id) {
+      const p = getP(id);
+      if (!confirm(`Delete “${p.name}” and all its photos, readings and time logs? This cannot be undone.`)) return;
+      const photoIds = STAGES.flatMap(s => p.stages[s.key].photos.map(x => x.id));
+      await idb('photos', 'readwrite', s => photoIds.forEach(k => s.delete(k)));
+      photoIds.forEach(k => { photoCache.delete(k); removeRemoteFile('photos', k); });
+      await idb('files', 'readwrite', s => p.docs.forEach(d => s.delete(d.id)));
+      p.docs.forEach(d => removeRemoteFile('files', d.id));
+      state.projects = state.projects.filter(x => x.id !== id);
+      save();
+      location.hash = '#/projects';
+    }
+
+    function editMaterial(pid, mid) {
+      const p = getP(pid);
+      const m = mid ? p.materials.find(x => x.id === mid) : { name: '', qty: '1', unit: 'ea', stage: currentStage(p)?.key || '', supplier: '', cost: '', note: '' };
+      openForm({
+        title: mid ? 'Edit material' : 'Add material',
+        fields: [
+          { name: 'name', label: 'Item', value: m.name, required: true, wide: true, placeholder: 'e.g. 1/4" x 1/2" pair coil, R32 refrigerant' },
+          { name: 'qty', label: 'Quantity', value: m.qty, type: 'number', step: 'any' },
+          { name: 'unit', label: 'Unit', value: m.unit, options: UNITS },
+          { name: 'stage', label: 'Stage', value: m.stage, options: [['', 'General'], ...STAGES.map(s => [s.key, s.label])] },
+          { name: 'supplier', label: 'Supplier', value: m.supplier, placeholder: 'e.g. Reece, AAD' },
+          { name: 'cost', label: 'Unit cost ($, optional)', value: m.cost, type: 'number', step: '0.01' },
+          { name: 'note', label: 'Note', value: m.note }
+        ],
+        onSave: v => { if (mid) Object.assign(m, v); else p.materials.push({ id: uid(), ...v }); },
+        onDelete: mid && (() => { p.materials = p.materials.filter(x => x.id !== mid); })
+      });
+    }
+
+    function editEquipment(pid, eid) {
+      const p = getP(pid);
+      const e = eid ? p.equipment.find(x => x.id === eid) : { type: EQUIP_TYPES[0], brandModel: '', serial: '', location: '', installed: today(), warrantyEnd: '', note: '' };
+      openForm({
+        title: eid ? 'Edit equipment' : 'Add equipment',
+        fields: [
+          { name: 'type', label: 'Type', value: e.type, options: EQUIP_TYPES },
+          { name: 'brandModel', label: 'Brand & model', value: e.brandModel, required: true },
+          { name: 'serial', label: 'Serial number', value: e.serial },
+          { name: 'location', label: 'Location', value: e.location, placeholder: 'e.g. Roof space, side of house' },
+          { name: 'installed', label: 'Install date', value: e.installed, type: 'date' },
+          { name: 'warrantyEnd', label: 'Warranty expires', value: e.warrantyEnd, type: 'date' },
+          { name: 'note', label: 'Notes', value: e.note, type: 'textarea', wide: true, placeholder: 'Refrigerant type and charge, capacity, service notes…' }
+        ],
+        onSave: v => { if (eid) Object.assign(e, v); else p.equipment.push({ id: uid(), ...v }); },
+        onDelete: eid && (() => { p.equipment = p.equipment.filter(x => x.id !== eid); })
+      });
+    }
+
+    /* ══════════ Timeline planning ══════════ */
+
+    const STAGE_SPLIT = { planning: 0.1, roughin: 0.45, fitoff: 0.45 };
+    const DEFAULT_STAGE_HOURS = { planning: 4, roughin: 24, fitoff: 16 };
+    const msColor = m => m.done ? 'var(--c-green)' : m.date && m.date < today() ? 'var(--c-red)' : 'var(--white)';
+
+    /* Stage estimate: its own, else a share of the project's quoted hours, else a typical default */
+    function defaultStageHours(p, key) {
+      const own = parseFloat(p.stages[key].estHours);
+      if (own) return own;
+      if (parseFloat(p.quotedHours)) return Math.round(parseFloat(p.quotedHours) * STAGE_SPLIT[key] * 4) / 4;
+      return DEFAULT_STAGE_HOURS[key];
+    }
+
+    const stageDays = (hours, people) => Math.max(1, Math.ceil(hours / (Math.max(1, people) * (parseFloat(state.settings.hoursPerDay) || 8))));
+
+    /* rows: [{ key, days, gap }] in stage order. mode 'start' works forward from anchor, 'finish' works back from it. */
+    function planDates(rows, mode, anchor) {
+      const out = {};
+      if (mode === 'start') {
+        let cur = nextWorkDay(anchor);
+        rows.forEach(r => {
+          const end = shiftWorkDays(cur, r.days - 1);
+          out[r.key] = { start: cur, end };
+          cur = shiftWorkDays(end, r.gap + 1);
+        });
+      } else {
+        let nextStart = null;
+        [...rows].reverse().forEach(r => {
+          const end = nextStart ? shiftWorkDays(nextStart, -(r.gap + 1)) : prevWorkDay(anchor);
+          const start = shiftWorkDays(end, -(r.days - 1));
+          out[r.key] = { start, end };
+          nextStart = start;
+        });
+      }
+      return out;
+    }
+
+    function timelineStatus(p) {
+      const ends = STAGES.map(s => p.stages[s.key]).filter(st => st.start).map(st => st.end || st.start).sort();
+      const finish = ends[ends.length - 1] || '';
+      const allScheduled = STAGES.every(s => p.stages[s.key].start || p.stages[s.key].status === 'Complete');
+      return { finish, allScheduled, spare: finish && p.deadline ? workDaysBetween(finish, p.deadline) : null };
+    }
+
+    /* Gantt chart. rows: [{ label, sub (HTML), href, bars: [{ start, end, color, faded, title }], marks: [{ date, color, title, deadline }] }] */
+    function gantt(rows, from, to, opts = {}) {
+      const total = dayDiff(from, to) + 1;
+      const pos = iso => dayDiff(from, iso) / total * 100;
+      const inRange = iso => iso >= from && iso <= to;
+      let ticks = [];
+      for (let d = mondayOf(from) < from ? addDays(mondayOf(from), 7) : mondayOf(from); d <= to; d = addDays(d, 7)) ticks.push(d);
+      if (ticks.length > 14) ticks = ticks.filter((_, i) => i % Math.ceil(ticks.length / 14) === 0);
+      const t = today();
+      const dlLine = iso => `<i class="g-dl" title="Deadline ${fmtDate(iso)}" style="left:${(dayDiff(from, iso) + 1) / total * 100}%"></i>`;
+      const lines = ticks.map(d => `<i class="g-line" style="left:${pos(d)}%"></i>`).join('')
+        + (inRange(t) ? `<i class="g-today" style="left:${pos(t)}%"></i>` : '')
+        + (opts.deadline && inRange(opts.deadline) ? dlLine(opts.deadline) : '');
+
+      return `<div class="gantt"><div style="min-width:${Math.max(560, total * 9)}px">
+        <div class="g-row g-head"><div class="g-label"></div><div class="g-track">${ticks.map(d => `<span class="g-tick" style="left:${pos(d)}%">${fmtDate(d)}</span>`).join('')}</div></div>
+        ${rows.map(r => `<div class="g-row">
+          <div class="g-label">${r.href ? `<a href="${r.href}">${esc(r.label)}</a>` : esc(r.label)}${r.sub ? `<div class="faint">${r.sub}</div>` : ''}</div>
+          <div class="g-track">${lines}
+            ${r.bars.map(b => {
+              const a = b.start < from ? from : b.start, e = b.end > to ? to : b.end;
+              if (e < from || a > to) return '';
+              return `<span class="g-bar" title="${esc(b.title || '')}" style="left:${pos(a)}%;width:${(dayDiff(a, e) + 1) / total * 100}%;background:${b.color}${b.faded ? ';opacity:.4' : ''}"></span>`;
+            }).join('')}
+            ${r.marks.filter(m => inRange(m.date)).map(m => m.deadline ? dlLine(m.date)
+              : `<span class="g-mark" title="${esc(m.title)} — ${fmtDate(m.date)}" style="left:${(dayDiff(from, m.date) + 0.5) / total * 100}%;background:${m.color}"></span>`).join('')}
+          </div>
+        </div>`).join('')}
+      </div></div>`;
+    }
+
+    function stageBar(p, s) {
+      const st = p.stages[s.key];
+      const end = st.end || st.start;
+      return { start: st.start, end, color: s.color, faded: st.status === 'Complete', title: `${s.label}: ${dateRange(st.start, end)}` };
+    }
+
+    function timelineSection(p) {
+      const t = today();
+      const rows = STAGES.filter(s => p.stages[s.key].start).map(s => ({
+        label: s.label, sub: dateRange(p.stages[s.key].start, p.stages[s.key].end), href: `#/project/${p.id}/stage/${s.key}`,
+        bars: [stageBar(p, s)], marks: []
+      }));
+      const ms = p.milestones.filter(m => m.date);
+      if (ms.length) rows.push({ label: 'Milestones', sub: `${ms.filter(m => m.done).length} of ${ms.length} done`, bars: [], marks: ms.map(m => ({ date: m.date, color: msColor(m), title: m.title })) });
+
+      const ts = timelineStatus(p);
+      let status;
+      if (!p.deadline) status = '<span class="tag">No deadline set</span>';
+      else if (ts.spare === null) status = `<span class="tag">Deadline ${fmtDate(p.deadline, true)}</span>`;
+      else if (ts.spare >= 0) status = `<span class="tag tag-good">On track · finishes ${fmtDate(ts.finish)}, ${ts.spare} working day${ts.spare === 1 ? '' : 's'} before the ${fmtDate(p.deadline)} deadline</span>`;
+      else status = `<span class="tag tag-bad">Finishes ${fmtDate(ts.finish)} · ${-ts.spare} working day${ts.spare === -1 ? '' : 's'} past the ${fmtDate(p.deadline)} deadline</span>`;
+      if (p.deadline && !ts.allScheduled) status += ' <span class="tag tag-warn">Some stages not scheduled</span>';
+
+      const dates = [...rows.flatMap(r => [...r.bars.flatMap(b => [b.start, b.end]), ...r.marks.map(m => m.date)]), p.deadline].filter(Boolean).sort();
+      const chart = rows.length
+        ? gantt(rows, addDays(dates[0], -3), addDays(dates[dates.length - 1], 3), { deadline: p.deadline })
+        : empty('No dates yet. Use Plan timeline to build the schedule from the scope of work.');
+
+      const list = [...p.milestones].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      return `
+        <div class="chips" style="margin-bottom:14px">${status}</div>
+        ${chart}
+        ${list.length ? `<div class="rows" style="margin-top:12px">${list.map(m => `<div class="check ${m.done ? 'done' : ''}">
+          <input type="checkbox" ${m.done ? 'checked' : ''} onchange="toggleMilestone('${p.id}','${m.id}')" />
+          <div class="check-text">${esc(m.title)}<div class="faint">${m.date ? fmtDate(m.date, true) : 'No date'}${!m.done && m.date && m.date < t ? ' · overdue' : ''}</div></div>
+          <button class="icon-btn" title="Edit" onclick="editMilestone('${p.id}','${m.id}')">${ICON.edit}</button>
+        </div>`).join('')}</div>` : ''}`;
+    }
+
+    function editMilestone(pid, mid) {
+      const p = getP(pid);
+      const m = mid ? p.milestones.find(x => x.id === mid) : { title: '', date: '', done: false };
+      openForm({
+        title: mid ? 'Edit milestone' : 'Add milestone',
+        fields: [
+          { name: 'title', label: 'Milestone', value: m.title, required: true, wide: true, placeholder: 'e.g. Plumbing rough-in inspection, Gas compliance cert' },
+          { name: 'date', label: 'Date', value: m.date, type: 'date', required: true },
+          { name: 'done', label: 'Status', value: m.done ? 'Done' : 'Not done', options: ['Not done', 'Done'] }
+        ],
+        onSave: v => {
+          const data = { title: v.title.trim(), date: v.date, done: v.done === 'Done' };
+          if (mid) Object.assign(m, data); else p.milestones.push({ id: uid(), ...data });
+        },
+        onDelete: mid && (() => { p.milestones = p.milestones.filter(x => x.id !== mid); })
+      });
+    }
+
+    function toggleMilestone(pid, mid) {
+      const m = getP(pid).milestones.find(x => x.id === mid);
+      m.done = !m.done;
+      save(); render();
+    }
+
+    function upsertMilestone(p, auto, title, date) {
+      const m = p.milestones.find(x => x.auto === auto);
+      if (m) { if (!m.done) m.date = date; }
+      else p.milestones.push({ id: uid(), auto, title, date, done: false });
+    }
+
+    /* ── Plan timeline modal: scope of work → stage dates ── */
+
+    function planTimeline(pid) {
+      const p = getP(pid);
+      const open = STAGES.filter(s => p.stages[s.key].status !== 'Complete');
+      if (!open.length) { toast('All stages are already complete'); return; }
+      const start = p.stages[open[0].key].start || nextWorkDay(addDays(today(), 1));
+      showModal(`
+        <h3>Plan timeline</h3>
+        <p class="muted">Builds stage dates from the scope of work: estimated hours per stage, how many people are on it, and the lead time before the next stage (ordering, plastering, other trades). Non-working days are skipped; completed stages are left alone.</p>
+        <form id="tl-form" oninput="tlInput(event, '${pid}')" onsubmit="event.preventDefault(); tlApply('${pid}')">
+          <div class="fgrid" style="margin-top:16px">
+            <div class="fwide"><label class="lbl">Schedule</label>
+              <select name="mode">
+                <option value="start" ${p.deadline ? '' : 'selected'}>Forward from a start date</option>
+                <option value="finish" ${p.deadline ? 'selected' : ''}>Back from the deadline</option>
+              </select></div>
+            <div><label class="lbl">Start date</label><input type="date" name="start" value="${start}" /></div>
+            <div><label class="lbl">Deadline / handover</label><input type="date" name="deadline" value="${p.deadline}" /></div>
+          </div>
+          ${open.map((s, i) => {
+            const st = p.stages[s.key];
+            const hours = defaultStageHours(p, s.key);
+            const people = st.people || Math.max(1, st.crew.length);
+            const last = i === open.length - 1;
+            const gap = st.gapAfter ?? state.settings.gaps[s.key] ?? 0;
+            return `<div class="tl-stage">
+              <div class="tl-name"><span class="dot" style="background:${s.color}"></span>${s.label}${st.status === 'In progress' ? ' <span class="tag tag-warn">In progress</span>' : ''}</div>
+              <div class="tl-grid">
+                <div><label class="lbl">Est. hours</label><input type="number" name="h_${s.key}" value="${hours}" step="0.25" min="0" /></div>
+                <div><label class="lbl">People</label><input type="number" name="n_${s.key}" value="${people}" min="1" step="1" /></div>
+                <div><label class="lbl">Work days</label><input type="number" name="d_${s.key}" value="${stageDays(hours, people)}" min="1" step="1" /></div>
+                <div><label class="lbl">Lead after</label><input type="number" name="g_${s.key}" value="${last ? 0 : gap}" min="0" step="1" ${last ? 'disabled' : ''} /></div>
+              </div>
+            </div>`;
+          }).join('')}
+          <label class="toggle" style="margin-top:16px"><input type="checkbox" name="ms" checked /> Add key milestones (equipment ordered, rough-in inspection, handover)</label>
+          <div id="tl-preview" style="margin-top:6px"></div>
+          <div class="modal-actions">
+            <button class="btn" type="submit">Apply to schedule</button>
+            <button class="btn btn-ghost" type="button" onclick="closeModal()">Cancel</button>
+          </div>
+        </form>`);
+      tlPreview(pid);
+    }
+
+    function tlInput(e, pid) {
+      const f = $('tl-form');
+      const name = e.target.name || '';
+      if (/^[hn]_/.test(name)) {
+        const key = name.slice(2);
+        f['d_' + key].value = stageDays(parseFloat(f['h_' + key].value) || 0, parseInt(f['n_' + key].value, 10) || 1);
+      }
+      tlPreview(pid);
+    }
+
+    function tlRead(pid) {
+      const p = getP(pid), f = $('tl-form');
+      const rows = STAGES.filter(s => p.stages[s.key].status !== 'Complete').map(s => ({
+        key: s.key,
+        hours: parseFloat(f['h_' + s.key].value) || 0,
+        people: parseInt(f['n_' + s.key].value, 10) || 1,
+        days: Math.max(1, parseInt(f['d_' + s.key].value, 10) || 1),
+        gap: Math.max(0, parseInt(f['g_' + s.key].value, 10) || 0)
+      }));
+      rows[rows.length - 1].gap = 0;
+      const mode = f.mode.value, start = f.start.value, deadline = f.deadline.value;
+      const anchor = mode === 'start' ? start : deadline;
+      return { p, rows, mode, deadline, milestones: f.ms.checked, plan: anchor ? planDates(rows, mode, anchor) : null };
+    }
+
+    function tlPreview(pid) {
+      const t = tlRead(pid);
+      const el = $('tl-preview');
+      if (!t.plan) {
+        el.innerHTML = `<div class="warn-box">${t.mode === 'start' ? 'Pick a start date.' : 'Enter a deadline to work back from.'}</div>`;
+        return;
+      }
+      const p = t.p;
+      const keys = t.rows.map(r => r.key);
+      const first = t.plan[keys[0]].start, finish = t.plan[keys[keys.length - 1]].end;
+      const msgs = [];
+      if (t.deadline) {
+        const spare = workDaysBetween(finish, t.deadline);
+        msgs.push(spare >= 0
+          ? `<div class="ok-box">Finishes ${fmtDate(finish, true)} — ${spare} working day${spare === 1 ? '' : 's'} before the deadline.</div>`
+          : `<div class="warn-box">Finishes ${fmtDate(finish, true)} — ${-spare} working day${spare === -1 ? '' : 's'} after the ${fmtDate(t.deadline, true)} deadline. Add people or shorten lead times.</div>`);
+      } else {
+        msgs.push(`<div class="ok-box">Finishes ${fmtDate(finish, true)}.</div>`);
+      }
+      if (first < today() && p.stages[keys[0]].status !== 'In progress') {
+        msgs.push(`<div class="warn-box">${STAGES.find(s => s.key === keys[0]).label} would need to start ${fmtDate(first, true)}, which has already passed.</div>`);
+      }
+      const others = bookings().filter(b => b.p !== p && b.st.status !== 'Complete' && b.p.status !== 'Complete');
+      const clashText = [];
+      keys.forEach(k => {
+        const r = t.plan[k];
+        others.forEach(b => {
+          if (r.start <= b.end && b.start <= r.end) {
+            p.stages[k].crew.filter(c => b.crew.includes(c)).forEach(c => clashText.push(`${esc(getCrew(c)?.name)} is on ${esc(b.p.name)} (${b.s.label}), ${dateRange(b.start, b.end)}`));
+          }
+        });
+      });
+      if (clashText.length) msgs.push(`<div class="warn-box"><b>Crew clashes</b><br>${clashText.join('<br>')}</div>`);
+
+      const rows = t.rows.map(r => {
+        const s = STAGES.find(x => x.key === r.key);
+        const d = t.plan[r.key];
+        return { label: s.label, sub: `${dateRange(d.start, d.end)} · ${r.days} day${r.days === 1 ? '' : 's'}`, bars: [{ start: d.start, end: d.end, color: s.color }], marks: [] };
+      });
+      const last = [finish, t.deadline].filter(Boolean).sort().pop();
+      el.innerHTML = msgs.join('') + `<div style="margin-top:14px">${gantt(rows, addDays(first, -2), addDays(last, 2), { deadline: t.deadline })}</div>`;
+    }
+
+    function tlApply(pid) {
+      const t = tlRead(pid);
+      if (!t.plan) { tlPreview(pid); return; }
+      const p = t.p;
+      t.rows.forEach(r => {
+        Object.assign(p.stages[r.key], t.plan[r.key], { estHours: String(r.hours), people: r.people, gapAfter: r.gap });
+      });
+      if (t.deadline) p.deadline = t.deadline;
+      if (t.milestones) {
+        if (t.plan.planning) upsertMilestone(p, 'order', 'Equipment ordered', t.plan.planning.end);
+        if (t.plan.roughin) upsertMilestone(p, 'inspect', 'Rough-in inspection', shiftWorkDays(t.plan.roughin.end, 1));
+        if (t.plan.fitoff) upsertMilestone(p, 'handover', 'Handover / practical completion', t.plan.fitoff.end);
+      }
+      save(); closeModal(); render();
+      toast('Timeline added to the schedule');
+    }
+
+    /* ── Schedule tab: all-projects timeline ── */
+
+    function timelineView() {
+      const from = ui.tlFrom, to = addDays(from, 7 * 12 - 1);
+      const overlaps = r => r.bars.some(b => b.end >= from && b.start <= to) || r.marks.some(m => m.date >= from && m.date <= to);
+      const rows = state.projects.filter(p => p.status !== 'Complete').map(p => {
+        const stages = STAGES.filter(s => p.stages[s.key].start && (!ui.calCrew || p.stages[s.key].crew.includes(ui.calCrew)));
+        const marks = ui.calCrew ? [] : [
+          ...p.milestones.filter(m => m.date).map(m => ({ date: m.date, color: msColor(m), title: m.title })),
+          ...(p.deadline ? [{ date: p.deadline, title: 'Deadline', deadline: true }] : [])
+        ];
+        const ts = timelineStatus(p);
+        const late = ts.spare !== null && ts.spare < 0;
+        return {
+          label: p.name, href: `#/project/${p.id}`,
+          sub: `${esc(p.jobNo)}${p.deadline ? ` · <span class="${late ? 'over' : ''}">due ${fmtDate(p.deadline)}</span>` : ''}`,
+          bars: stages.map(s => stageBar(p, s)), marks,
+          first: stages.length ? p.stages[stages[0].key].start : p.deadline || '9999'
+        };
+      }).filter(overlaps).sort((a, b) => a.first.localeCompare(b.first));
+
+      const toPlan = state.projects.filter(p => p.status === 'Active' && STAGES.some(s => !p.stages[s.key].start && p.stages[s.key].status !== 'Complete'));
+
+      return `
+        <section class="card">
+          <div class="cal-head">
+            <button class="icon-btn" onclick="ui.tlFrom = addDays(ui.tlFrom, -28); render()" title="Earlier">${ICON.left}</button>
+            <span class="month" style="min-width:0">${fmtDate(from)} – ${fmtDate(to, true)}</span>
+            <button class="icon-btn" onclick="ui.tlFrom = addDays(ui.tlFrom, 28); render()" title="Later">${ICON.right}</button>
+            <button class="btn btn-ghost btn-sm" onclick="ui.tlFrom = mondayOf(today()); render()">Today</button>
+            <select onchange="ui.calCrew = this.value; render()">
+              <option value="">All crew</option>
+              ${state.crew.map(c => `<option value="${c.id}" ${ui.calCrew === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+            </select>
+          </div>
+          ${rows.length ? gantt(rows, from, to) : empty('Nothing scheduled in these 12 weeks.')}
+          <div class="legend">
+            ${STAGES.map(s => `<span><span class="dot" style="background:${s.color}"></span>${s.label}</span>`).join('')}
+            <span><span class="ms-key"></span>Milestone</span>
+            <span><span style="width:3px;height:12px;background:var(--c-red);display:inline-block;border-radius:2px"></span>Deadline</span>
+          </div>
+        </section>
+        <section class="card">
+          <h2>Needs a timeline <span class="muted">${toPlan.length}</span></h2>
+          <div class="rows">${toPlan.length ? toPlan.map(p => `<div class="brow" style="align-items:center">
+            <div class="brow-main"><a class="brow-title" href="#/project/${p.id}">${esc(p.name)}</a>
+              <div class="muted">${esc(p.jobNo)} · ${STAGES.filter(s => !p.stages[s.key].start && p.stages[s.key].status !== 'Complete').map(s => s.label).join(', ')} not scheduled</div></div>
+            <button class="btn btn-ghost btn-sm" onclick="planTimeline('${p.id}')">Plan timeline</button>
+          </div>`).join('') : empty('Every active project has dates.')}</div>
+        </section>`;
+    }
+
+    /* ══════════ Defects & variations ══════════ */
+
+    function issueStatusTag(i) {
+      const cls = { Open: 'tag-bad', 'In progress': 'tag-warn', Fixed: 'tag-good', Pending: 'tag-warn', Approved: 'tag-good', Completed: 'tag-good', Rejected: '' }[i.status] || '';
+      return `<span class="tag ${cls}">${esc(i.status)}</span>`;
+    }
+
+    function editIssue(pid, iid, kind) {
+      const p = getP(pid);
+      const it = iid ? p.issues.find(x => x.id === iid)
+        : { kind, title: '', stage: currentStage(p)?.key || '', status: kind === 'Defect' ? 'Open' : 'Pending', raisedBy: '', raised: today(), amount: '', description: '' };
+      const isVar = it.kind === 'Variation';
+      openForm({
+        title: iid ? `${it.kind} ${it.ref}` : `Add ${it.kind.toLowerCase()}`,
+        fields: [
+          { name: 'title', label: it.kind, value: it.title, required: true, wide: true, placeholder: isVar ? 'e.g. Add extra outlet to study' : 'e.g. Condensate leak at bedroom 2 FCU' },
+          { name: 'stage', label: 'Stage', value: it.stage, options: [['', 'General'], ...STAGES.map(s => [s.key, s.label])] },
+          { name: 'status', label: 'Status', value: it.status, options: isVar ? VARIATION_STATUS : DEFECT_STATUS },
+          { name: 'raisedBy', label: isVar ? 'Requested by' : 'Raised by', value: it.raisedBy, placeholder: 'e.g. Builder site supervisor' },
+          { name: 'raised', label: 'Date raised', value: it.raised, type: 'date' },
+          { name: 'amount', label: isVar ? 'Price to client ($ ex GST)' : 'Cost to fix ($, optional)', value: it.amount, type: 'number', step: '0.01' },
+          { name: 'description', label: 'Details', value: it.description, type: 'textarea', wide: true }
+        ],
+        onSave: v => {
+          const target = iid ? it : { id: uid(), kind, ref: nextRef(p, kind) };
+          const wasClosed = ['Fixed', 'Completed'].includes(target.status);
+          Object.assign(target, v);
+          const isClosed = ['Fixed', 'Completed'].includes(target.status);
+          if (isClosed && !wasClosed) target.closed = today();
+          if (!isClosed) target.closed = '';
+          if (!iid) p.issues.push(target);
+        },
+        onDelete: iid && (() => {
+          if (!confirm(`Delete ${it.kind.toLowerCase()} ${it.ref}?`)) return false;
+          p.issues = p.issues.filter(x => x.id !== iid);
+        })
+      });
+    }
+
+    /* ══════════ Documents ══════════ */
+
+    function guessDocCategory(name) {
+      const n = name.toLowerCase();
+      if (/plan|drawing|layout/.test(n)) return 'Plans';
+      if (/permit|approval/.test(n)) return 'Permit / approval';
+      if (/cert|coc|compliance/.test(n)) return 'Compliance certificate';
+      if (/quote/.test(n)) return 'Quote';
+      if (/invoice/.test(n)) return 'Invoice';
+      if (/purchase|\bpo\b/.test(n)) return 'Purchase order';
+      if (/warrant|manual/.test(n)) return 'Warranty / manual';
+      return 'Other';
+    }
+
+    async function addDocs(pid, files) {
+      const p = getP(pid);
+      let added = 0;
+      for (const f of files) {
+        if (f.size > 25 * 1048576) { toast(`${f.name} is over 25 MB`); continue; }
+        const id = uid();
+        try {
+          await idb('files', 'readwrite', s => s.put(f, id));
+        } catch (err) {
+          console.error(err);
+          toast(`Could not save ${f.name}`);
+          continue;
+        }
+        queueUpload('files', id);
+        p.docs.push({ id, name: f.name, category: guessDocCategory(f.name), size: f.size, type: f.type, at: Date.now() });
+        added++;
+      }
+      save(); render();
+      if (added) toast(added === 1 ? 'Document added' : added + ' documents added');
+    }
+
+    async function openDoc(pid, id) {
+      const d = getP(pid).docs.find(x => x.id === id);
+      let blob = await idb('files', 'readonly', s => s.get(id));
+      if (!blob && CLOUD) {
+        toast('Downloading…');
+        blob = await downloadFile('files', id);
+      }
+      if (!blob) { toast(CLOUD ? 'Could not download the file — check your connection' : 'File not found on this device'); return; }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      if (!/^(image\/|application\/pdf|text\/)/.test(blob.type)) a.download = d.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
+
+    function editDoc(pid, id) {
+      const p = getP(pid);
+      const d = p.docs.find(x => x.id === id);
+      openForm({
+        title: 'Document',
+        fields: [
+          { name: 'name', label: 'Name', value: d.name, required: true, wide: true },
+          { name: 'category', label: 'Category', value: d.category, options: DOC_CATS }
+        ],
+        onSave: v => Object.assign(d, v),
+        onDelete: () => {
+          if (!confirm(`Delete ${d.name}?`)) return false;
+          p.docs = p.docs.filter(x => x.id !== id);
+          idb('files', 'readwrite', s => s.delete(id));
+          removeRemoteFile('files', id);
+        }
+      });
+    }
+
+    /* ══════════ Reports: hours, materials, profit ══════════ */
+
+    function costTile(label, value, sub, cls = '') {
+      return `<div class="stat"><div class="stat-num money ${cls}">${value}</div><div class="stat-label">${label}</div>${sub ? `<div class="stat-sub">${sub}</div>` : ''}</div>`;
+    }
+
+    function reportProjects() {
+      return state.projects
+        .filter(p => (!ui.rTrade || p.trade === ui.rTrade)
+          && (ui.rStatus === 'all' || (ui.rStatus === 'open' ? p.status !== 'Complete' : p.status === ui.rStatus)))
+        .sort((a, b) => String(a.jobNo).localeCompare(String(b.jobNo)));
+    }
+
+    function reportsView() {
+      const ps = reportProjects();
+      const rows = ps.map(p => ({ p, jc: costing(p) }));
+      const F = ['contract', 'variations', 'revenue', 'hours', 'quotedHours', 'labour', 'materials', 'materialsBudget', 'defects', 'cost', 'profit'];
+      const tot = Object.fromEntries(F.map(f => [f, rows.reduce((n, r) => n + r.jc[f], 0)]));
+      const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
+      const noValue = rows.filter(r => !r.jc.contract).length;
+
+      const byCrew = {};
+      ps.forEach(p => STAGES.forEach(s => p.stages[s.key].time.forEach(t => {
+        if ((ui.rFrom && t.date < ui.rFrom) || (ui.rTo && t.date > ui.rTo)) return;
+        const h = parseFloat(t.hours) || 0;
+        const r = byCrew[t.crewId] = byCrew[t.crewId] || { hours: 0, cost: 0, projects: new Set() };
+        r.hours += h;
+        r.cost += h * crewRate(t.crewId);
+        r[s.key] = (r[s.key] || 0) + h;
+        r.projects.add(p.id);
+      })));
+      const crewRows = Object.entries(byCrew).sort((a, b) => b[1].hours - a[1].hours);
+      const crewTot = crewRows.reduce((t, [, r]) => ({ hours: t.hours + r.hours, cost: t.cost + r.cost }), { hours: 0, cost: 0 });
+
+      const bySupplier = {};
+      ps.forEach(p => p.materials.forEach(m => {
+        const key = (m.supplier || '').trim() || 'No supplier';
+        const r = bySupplier[key] = bySupplier[key] || { lines: 0, cost: 0, projects: new Set() };
+        r.lines++;
+        r.cost += lineCost(m);
+        r.projects.add(p.id);
+      }));
+      const supRows = Object.entries(bySupplier).sort((a, b) => b[1].cost - a[1].cost);
+
+      return `
+        <div class="page-head">
+          <h1 class="page-title">Reports</h1>
+          <button class="btn btn-ghost" onclick="exportProfitCSV()">Export CSV</button>
+        </div>
+        <div class="filters">
+          <select onchange="ui.rTrade = this.value; render()">
+            <option value="">All trades</option>
+            ${TRADES.map(t => `<option ${ui.rTrade === t ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>
+          <select onchange="ui.rStatus = this.value; render()">
+            ${[['all', 'All projects'], ['open', 'Open (active + on hold)'], ['Active', 'Active'], ['On hold', 'On hold'], ['Complete', 'Complete']]
+              .map(([v, l]) => `<option value="${v}" ${ui.rStatus === v ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+        </div>
+
+        <div class="stats">
+          ${costTile('Revenue', money0(tot.revenue), `${ps.length} project${ps.length === 1 ? '' : 's'}`)}
+          ${costTile('Costs', money0(tot.cost), `Labour ${money0(tot.labour)} · materials ${money0(tot.materials)}`)}
+          ${costTile('Profit', money0(tot.profit), '', tot.profit < 0 ? 'neg' : '')}
+          ${costTile('Margin', pct(tot.profit, tot.revenue), tot.quotedHours ? `${fmtH(tot.hours)} of ${fmtH(tot.quotedHours)} quoted` : fmtH(tot.hours) + ' logged')}
+        </div>
+        ${noValue ? `<div class="warn-box" style="margin-bottom:12px">${noValue} project${noValue === 1 ? ' has' : 's have'} no contract value, so ${noValue === 1 ? 'it shows' : 'they show'} as a loss. Add it with Edit on the project page.</div>` : ''}
+
+        <h2 class="h-section">Profit by project</h2>
+        <section class="card">
+          ${rows.length ? `<div class="tbl-wrap"><table class="tbl">
+            <thead><tr><th>Project</th><th class="num">Contract</th><th class="num">Variations</th><th class="num">Hours</th><th class="num">Labour</th><th class="num">Materials</th><th class="num">Defects</th><th class="num">Profit</th><th class="num">Margin</th></tr></thead>
+            <tbody>
+              ${rows.map(({ p, jc }) => `<tr class="click" onclick="location.hash='#/project/${p.id}'">
+                <td><b>${esc(p.name)}</b><div class="faint">${esc(p.jobNo)} · ${esc(p.status)}</div></td>
+                <td class="num">${money0(jc.contract)}</td>
+                <td class="num">${jc.variations ? money0(jc.variations) : ''}</td>
+                <td class="num ${jc.quotedHours && jc.hours > jc.quotedHours ? 'over' : ''}">${fmtH(jc.hours)}${jc.quotedHours ? `<div class="faint">of ${fmtH(jc.quotedHours)}</div>` : ''}</td>
+                <td class="num">${money0(jc.labour)}</td>
+                <td class="num ${jc.materialsBudget && jc.materials > jc.materialsBudget ? 'over' : ''}">${money0(jc.materials)}${jc.materialsBudget ? `<div class="faint">of ${money0(jc.materialsBudget)}</div>` : ''}</td>
+                <td class="num">${jc.defects ? money0(jc.defects) : ''}</td>
+                <td class="num ${jc.profit < 0 ? 'neg' : ''}"><b>${money0(jc.profit)}</b></td>
+                <td class="num ${jc.profit < 0 ? 'neg' : ''}">${jc.margin === null ? '—' : Math.round(jc.margin) + '%'}</td>
+              </tr>`).join('')}
+              <tr class="tot">
+                <td>Total</td>
+                <td class="num">${money0(tot.contract)}</td>
+                <td class="num">${money0(tot.variations)}</td>
+                <td class="num">${fmtH(tot.hours)}</td>
+                <td class="num">${money0(tot.labour)}</td>
+                <td class="num">${money0(tot.materials)}</td>
+                <td class="num">${money0(tot.defects)}</td>
+                <td class="num ${tot.profit < 0 ? 'neg' : ''}">${money0(tot.profit)}</td>
+                <td class="num">${pct(tot.profit, tot.revenue)}</td>
+              </tr>
+            </tbody>
+          </table></div>` : empty('No projects match these filters.')}
+        </section>
+
+        <h2 class="h-section">Hours by crew
+          <span class="range">
+            <input type="date" value="${ui.rFrom}" onchange="ui.rFrom = this.value; render()" /> to
+            <input type="date" value="${ui.rTo}" onchange="ui.rTo = this.value; render()" />
+          </span>
+        </h2>
+        <section class="card">
+          ${crewRows.length ? `<div class="tbl-wrap"><table class="tbl">
+            <thead><tr><th>Crew</th>${STAGES.map(s => `<th class="num">${s.label}</th>`).join('')}<th class="num">Total</th><th class="num">Labour cost</th><th class="num">Projects</th></tr></thead>
+            <tbody>
+              ${crewRows.map(([cid, r]) => `<tr>
+                <td>${esc(getCrew(cid)?.name || 'Removed crew member')}<div class="faint">${money(crewRate(cid))}/h</div></td>
+                ${STAGES.map(s => `<td class="num">${r[s.key] ? fmtH(r[s.key]) : ''}</td>`).join('')}
+                <td class="num"><b>${fmtH(r.hours)}</b></td>
+                <td class="num">${money0(r.cost)}</td>
+                <td class="num">${r.projects.size}</td>
+              </tr>`).join('')}
+              <tr class="tot"><td>Total</td>${STAGES.map(() => '<td></td>').join('')}<td class="num">${fmtH(crewTot.hours)}</td><td class="num">${money0(crewTot.cost)}</td><td></td></tr>
+            </tbody>
+          </table></div>` : empty('No time logged in this date range.')}
+        </section>
+
+        <h2 class="h-section">Materials by supplier</h2>
+        <section class="card">
+          ${supRows.length ? `<div class="tbl-wrap"><table class="tbl">
+            <thead><tr><th>Supplier</th><th class="num">Line items</th><th class="num">Projects</th><th class="num">Cost</th></tr></thead>
+            <tbody>
+              ${supRows.map(([name, r]) => `<tr><td>${esc(name)}</td><td class="num">${r.lines}</td><td class="num">${r.projects.size}</td><td class="num">${money0(r.cost)}</td></tr>`).join('')}
+              <tr class="tot"><td>Total</td><td></td><td></td><td class="num">${money0(tot.materials)}</td></tr>
+            </tbody>
+          </table></div>` : empty('No materials recorded on these projects.')}
+        </section>`;
+    }
+
+    function exportProfitCSV() {
+      const rows = [['Job no', 'Project', 'Trade', 'Status', 'Contract', 'Variations', 'Revenue', 'Hours', 'Quoted hours', 'Labour cost', 'Materials', 'Materials budget', 'Defect costs', 'Total cost', 'Profit', 'Margin %']];
+      reportProjects().forEach(p => {
+        const jc = costing(p);
+        rows.push([p.jobNo, p.name, p.trade, p.status, r2(jc.contract), r2(jc.variations), r2(jc.revenue), r2(jc.hours), jc.quotedHours || '',
+          r2(jc.labour), r2(jc.materials), jc.materialsBudget || '', r2(jc.defects), r2(jc.cost), r2(jc.profit), jc.margin === null ? '' : Math.round(jc.margin)]);
+      });
+      const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+      saveFile(new File([csv], `hcm-profit-report-${today()}.csv`, { type: 'text/csv' }));
+    }
+
+    /* ══════════ Printable stage / project report ══════════ */
+
+    function reportView(p, key) {
+      const scope = key === 'all' ? STAGES : STAGES.filter(s => s.key === key);
+      if (!scope.length) return notFound();
+      const title = key === 'all' ? 'Project report' : `${scope[0].label} stage report`;
+      const issues = p.issues.filter(i => key === 'all' || i.stage === key);
+      const c = p.customer || {};
+      const back = key === 'all' ? `#/project/${p.id}` : `#/project/${p.id}/stage/${key}`;
+      const stageLabel = k => STAGES.find(s => s.key === k)?.label || 'General';
+      const showEquip = (key === 'all' || key === 'fitoff') && p.equipment.length;
+
+      return `
+        <div class="report-bar no-print">
+          <a class="back" href="${back}">${ICON.back} Back</a>
+          <label class="toggle"><input type="checkbox" ${ui.repPhotos ? 'checked' : ''} onchange="ui.repPhotos = this.checked; render()" /> Photos</label>
+          <label class="toggle"><input type="checkbox" ${ui.repTime ? 'checked' : ''} onchange="ui.repTime = this.checked; render()" /> Time log</label>
+          <button class="btn" onclick="window.print()">${ICON.print} Print / save PDF</button>
+        </div>
+        <article class="report">
+          <div class="r-head">
+            <div>
+              <h1>${title}</h1>
+              <div class="r-sub">${esc(p.jobNo)} · ${esc(p.name)}</div>
+            </div>
+            <img src="./logo.jpg" alt="Heatcool Masters" />
+          </div>
+          <table class="r-kv">
+            <tr><th>Site address</th><td>${esc(p.address) || '—'}</td></tr>
+            <tr><th>Customer</th><td>${[c.name, c.phone, c.email].filter(Boolean).map(esc).join(' · ') || '—'}</td></tr>
+            <tr><th>Builder / client</th><td>${esc(p.builder) || '—'}</td></tr>
+            <tr><th>Trade</th><td>${esc(p.trade)}</td></tr>
+            ${p.deadline ? `<tr><th>Deadline / handover</th><td>${fmtDate(p.deadline, true)}</td></tr>` : ''}
+            <tr><th>Report date</th><td>${fmtDate(today(), true)}</td></tr>
+          </table>
+
+          ${key === 'all' && p.milestones.length ? `<h2>Milestones</h2>
+            <table class="r-tbl">
+              <tr><th>Milestone</th><th>Date</th><th>Status</th></tr>
+              ${[...p.milestones].sort((a, b) => (a.date || '').localeCompare(b.date || '')).map(m => `<tr>
+                <td>${esc(m.title)}</td><td>${fmtDate(m.date, true) || '—'}</td><td>${m.done ? 'Done' : m.date && m.date < today() ? 'Overdue' : 'Upcoming'}</td>
+              </tr>`).join('')}
+            </table>` : ''}
+
+          ${scope.map(s => reportStage(p, s)).join('')}
+
+          ${issues.length ? `<h2>Defects & variations</h2>
+            <table class="r-tbl">
+              <tr><th>Ref</th><th>Item</th><th>Stage</th><th>Status</th><th class="num">Amount</th></tr>
+              ${issues.map(i => `<tr>
+                <td>${esc(i.ref)}</td>
+                <td><b>${esc(i.title)}</b>${i.description ? `<div class="r-muted">${esc(i.description)}</div>` : ''}<div class="r-muted">${i.kind}, raised ${fmtDate(i.raised, true)}${i.raisedBy ? ' by ' + esc(i.raisedBy) : ''}${i.closed ? ', closed ' + fmtDate(i.closed, true) : ''}</div></td>
+                <td>${stageLabel(i.stage)}</td>
+                <td>${esc(i.status)}</td>
+                <td class="num">${i.kind === 'Variation' && i.amount ? money(i.amount) : ''}</td>
+              </tr>`).join('')}
+            </table>` : ''}
+
+          ${showEquip ? `<h2>Installed equipment</h2>
+            <table class="r-tbl">
+              <tr><th>Equipment</th><th>Serial no.</th><th>Location</th><th>Installed</th><th>Warranty to</th></tr>
+              ${p.equipment.map(e => `<tr>
+                <td><b>${esc(e.brandModel)}</b><div class="r-muted">${esc(e.type)}</div></td>
+                <td>${esc(e.serial) || '—'}</td>
+                <td>${esc(e.location) || '—'}</td>
+                <td>${fmtDate(e.installed, true) || '—'}</td>
+                <td>${fmtDate(e.warrantyEnd, true) || '—'}</td>
+              </tr>`).join('')}
+            </table>` : ''}
+
+          <div class="r-foot">Heatcool Masters · ${esc(p.jobNo)} · Generated ${new Date().toLocaleString('en-AU')}</div>
+        </article>`;
+    }
+
+    function reportStage(p, s) {
+      const st = p.stages[s.key];
+      const pr = checkProgress(st);
+      const hours = st.time.reduce((n, t) => n + (parseFloat(t.hours) || 0), 0);
+      return `
+        <h2 style="border-left-color:${s.color}">${s.label} <span>${st.status}</span></h2>
+        <table class="r-kv">
+          <tr><th>Dates</th><td>${dateRange(st.start, st.end)}</td></tr>
+          <tr><th>Crew</th><td>${esc(crewNames(st.crew)) || '—'}</td></tr>
+          <tr><th>Checklist</th><td>${pr.done} of ${pr.total} complete</td></tr>
+        </table>
+
+        ${st.checklist.length ? `<h3>Checklist</h3>
+          <table class="r-tbl">${st.checklist.map(i => `<tr>
+            <td class="r-tick">${i.done ? '✓' : '—'}</td>
+            <td>${esc(i.text)}</td>
+            <td class="num r-muted">${i.done && i.doneAt ? fmtTime(i.doneAt) : 'Not done'}</td>
+          </tr>`).join('')}</table>` : ''}
+
+        ${st.readings.length ? `<h3>Readings & tests</h3>
+          <table class="r-tbl">
+            <tr><th>Reading</th><th class="num">Value</th><th>Recorded</th></tr>
+            ${st.readings.map(r => `<tr>
+              <td>${esc(r.type)}${r.note ? `<div class="r-muted">${esc(r.note)}</div>` : ''}</td>
+              <td class="num"><b>${esc(r.value)}</b> ${esc(r.unit)}</td>
+              <td class="r-muted">${fmtTime(r.at)}${r.by ? ' · ' + esc(getCrew(r.by)?.name || '') : ''}</td>
+            </tr>`).join('')}
+          </table>` : ''}
+
+        ${ui.repTime && st.time.length ? `<h3>Time log (${fmtH(hours)})</h3>
+          <table class="r-tbl">
+            <tr><th>Date</th><th>Crew</th><th class="num">Hours</th><th>Work done</th></tr>
+            ${[...st.time].sort((a, b) => a.date.localeCompare(b.date)).map(t => `<tr>
+              <td>${fmtDate(t.date, true)}</td><td>${esc(getCrew(t.crewId)?.name || '')}</td><td class="num">${esc(t.hours)}</td><td>${esc(t.note)}</td>
+            </tr>`).join('')}
+          </table>` : ''}
+
+        ${st.notes ? `<h3>Notes</h3><div class="r-notes">${esc(st.notes)}</div>` : ''}
+
+        ${ui.repPhotos && st.photos.length ? `<h3>Photos</h3>
+          <div class="r-photos">${st.photos.map(ph => `<figure><img data-photo="${ph.id}" alt="" />${ph.caption ? `<figcaption>${esc(ph.caption)}</figcaption>` : ''}</figure>`).join('')}</div>` : ''}
+
+        <h3>Sign-off</h3>
+        <div class="r-sig">${st.signoff
+          ? `Signed by <b>${esc(st.signoff.name)}</b> on ${fmtDate(st.signoff.date, true)}<img src="${st.signoff.sig}" alt="Signature" />`
+          : `<div class="r-muted">Name: ______________________________ &nbsp; Date: ____________</div><div class="r-sig-line"></div>`}</div>`;
+    }
+
+    /* ══════════ Modal ══════════ */
+
+    let formHandlers = null;
+
+    function showModal(html) {
+      $('modal-card').innerHTML = html;
+      $('modal').hidden = false;
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+      $('modal').hidden = true;
+      $('modal-card').innerHTML = '';
+      document.body.style.overflow = '';
+      formHandlers = null;
+      if (sync.pendingRender) setTimeout(requestRender, 0);
+    }
+
+    function fieldHTML(f) {
+      const attrs = `name="${f.name}" id="f-${f.name}" ${f.required ? 'required' : ''} placeholder="${esc(f.placeholder || '')}"`;
+      let input;
+      if (f.options) {
+        input = `<select ${attrs}>${f.options.map(o => {
+          const [val, label] = Array.isArray(o) ? o : [o, o];
+          return `<option value="${esc(val)}" ${String(f.value ?? '') === String(val) ? 'selected' : ''}>${esc(label)}</option>`;
+        }).join('')}</select>`;
+      } else if (f.type === 'textarea') {
+        input = `<textarea ${attrs}>${esc(f.value)}</textarea>`;
+      } else {
+        input = `<input type="${f.type || 'text'}" ${f.step ? `step="${f.step}"` : ''} value="${esc(f.value)}" ${attrs} />`;
+      }
+      return `<div class="${f.wide ? 'fwide' : ''}"><label class="lbl" for="f-${f.name}">${f.label}</label>${input}</div>`;
+    }
+
+    function openForm({ title, fields, saveLabel = 'Save', onSave, onDelete }) {
+      formHandlers = { onSave, onDelete };
+      showModal(`
+        <h3>${title}</h3>
+        <form id="modal-form" onsubmit="event.preventDefault(); submitForm()">
+          <div class="fgrid">${fields.map(fieldHTML).join('')}</div>
+          <div class="modal-actions">
+            <button class="btn" type="submit">${saveLabel}</button>
+            <button class="btn btn-ghost" type="button" onclick="closeModal()">Cancel</button>
+            ${onDelete ? '<span class="spacer"></span><button class="btn btn-danger" type="button" onclick="deleteFromForm()">Delete</button>' : ''}
+          </div>
+        </form>`);
+      const firstInput = $('modal-card').querySelector('input:not([type=date]), textarea');
+      if (firstInput && matchMedia('(pointer: fine)').matches) firstInput.focus();
+    }
+
+    function submitForm() {
+      const values = Object.fromEntries(new FormData($('modal-form')));
+      if (formHandlers.onSave(values) === false) return;
+      save(); closeModal(); render();
+    }
+
+    function deleteFromForm() {
+      if (formHandlers.onDelete() === false) return;
+      save(); closeModal(); render();
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('modal').hidden) closeModal(); });
+
+    /* ══════════ Router ══════════ */
+
+    function notFound() {
+      return `<section class="card">${empty('That page or project could not be found.')}<a class="btn btn-ghost" style="margin-top:12px" href="#/">Back to dashboard</a></section>`;
+    }
+
+    function render() {
+      const signedOut = CLOUD && !session;
+      document.body.classList.toggle('signed-out', signedOut);
+      if (signedOut) {
+        $('app').innerHTML = loginView();
+        return;
+      }
+      setSyncStatus(sync.status);
+      const [view = '', id, sub, key] = location.hash.replace(/^#\/?/, '').split('/');
+      const tab = view === 'project' ? 'projects' : view;
+      document.querySelectorAll('#tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+
+      let html;
+      if (view === '') html = dashboardView();
+      else if (view === 'projects') html = projectsView();
+      else if (view === 'schedule') html = scheduleView();
+      else if (view === 'crew') html = crewView();
+      else if (view === 'reports') html = reportsView();
+      else if (view === 'settings') html = settingsView();
+      else if (view === 'project') {
+        const p = getP(id);
+        html = !p ? notFound() : sub === 'stage' ? stageView(p, key) : sub === 'report' ? reportView(p, key) : projectView(p);
+      } else html = notFound();
+      document.body.classList.toggle('report-mode', view === 'project' && sub === 'report');
+
+      $('app').innerHTML = html;
+      loadPhotos();
+      if ($('sigpad')) initSig($('sigpad'));
+      showStorageUsed();
+    }
+
+    window.addEventListener('hashchange', () => { closeModal(); render(); window.scrollTo(0, 0); });
+
+    /* ══════════ Start ══════════ */
+
+    (async function init() {
+      try {
+        db = await openDB();
+        const saved = await idb('kv', 'readonly', s => s.get('state'));
+        if (saved) state = saved;
+        state = normalize(state);
+        if (CLOUD) Object.assign(sync, await idb('kv', 'readonly', s => s.get('sync')) || {});
+        navigator.storage?.persist?.();
+      } catch (err) {
+        console.error(err);
+        $('app').insertAdjacentHTML('beforebegin', '<div class="warn-box" style="margin-bottom:12px">Storage is unavailable in this browser (private mode?). Changes will not be saved.</div>');
+      }
+      if (CLOUD) await initCloud();
+      render();
+      if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js');
+    })();
+  </script>
+</body>
+</html>
