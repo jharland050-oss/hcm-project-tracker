@@ -222,6 +222,19 @@
     .chips { display: flex; flex-wrap: wrap; gap: 8px; }
     .chip { padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--line-dark); font-size: 14px; color: var(--white-dim); }
     .chip.on { border-color: var(--c-cyan); color: var(--white); background: rgba(26,174,230,0.15); }
+    .chip:disabled { cursor: default; }
+    .chip:disabled:not(.on) { opacity: 0.4; }
+    input:disabled, textarea:disabled, select:disabled { opacity: 1; color: var(--white); -webkit-text-fill-color: var(--white); cursor: default; }
+
+    /* ── Purchase order / form material rows ── */
+    .mrow { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 0.7fr) minmax(0, 0.8fr) minmax(0, 1.2fr) auto auto; gap: 8px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line-dark); }
+    .mrow:first-child { border-top: none; }
+    .mrow input, .mrow select { min-height: 42px; padding: 8px 12px; }
+    .mrow select { padding-right: 34px; background-position: right 12px center; }
+    .mrow .seg button { padding: 8px 10px; font-size: 13px; white-space: nowrap; }
+    .mrow .seg button:disabled { cursor: default; }
+    .section-note { color: var(--white-faint); font-size: 13px; margin: -8px 0 14px; }
+    .r-break { break-before: page; }
     .warn-box { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: rgba(226,86,30,0.14); color: #ffb08f; font-size: 14px; }
     .check { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
     .check-text { flex: 1; min-width: 0; }
@@ -387,6 +400,10 @@
       .plist { grid-template-columns: 1fr; }
       input, textarea, select { font-size: 16px !important; }
       .stat-num.money { font-size: 22px; }
+      .mrow { grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1.4fr) auto; }
+      .mrow .m-name { grid-column: 1 / -1; }
+      .mrow select { grid-column: 3 / -1; }
+      .mrow .m-stock { grid-column: 1 / 4; }
       .g-row { grid-template-columns: 120px 1fr; }
       .cal-mark { background: currentColor !important; border: none; }
       .report { padding: 20px; }
@@ -414,6 +431,7 @@
         <a class="tab" data-tab="" href="#/">Dashboard</a>
         <a class="tab" data-tab="projects" href="#/projects">Projects</a>
         <a class="tab" data-tab="schedule" href="#/schedule">Schedule</a>
+        <a class="tab" data-tab="orders" href="#/orders">Orders</a>
         <a class="tab" data-tab="crew" href="#/crew">Crew</a>
         <a class="tab" data-tab="reports" href="#/reports">Reports</a>
         <a class="tab" data-tab="settings" href="#/settings">Settings</a>
@@ -1152,8 +1170,9 @@
     function normalize(s) {
       s.settings = { labourCost: 60, hoursPerDay: 8, workDays: [1, 2, 3, 4, 5], holidays: true, cupDay: true, closures: [], ...(s.settings || {}) };
       s.settings.gaps = { planning: 5, roughin: 15, ...(s.settings.gaps || {}) };
+      if (!s.settings.materialRules) s.settings.materialRules = DEFAULT_MATERIAL_RULES.map(r => ({ ...r }));
       s.projects.forEach(p => {
-        ['materials', 'equipment', 'issues', 'docs', 'milestones'].forEach(k => { p[k] = p[k] || []; });
+        ['materials', 'equipment', 'issues', 'docs', 'milestones', 'orders'].forEach(k => { p[k] = p[k] || []; });
         p.deadline = p.deadline || '';
         ['contractValue', 'quotedHours', 'materialsBudget'].forEach(k => { if (p[k] === undefined) p[k] = ''; });
       });
@@ -1253,6 +1272,15 @@
           else if (m.date <= addDays(t, 3)) items.push({ level: 'warn', text: `${p.name} — ${m.title} due ${fmtDate(m.date)}`, href });
         });
       });
+      state.projects.filter(p => p.status !== 'Complete').forEach(p => p.orders.forEach(o => {
+        const href = `#/project/${p.id}/order/${o.id}`;
+        if (o.status === 'Ordered' && o.data.requiredBy && o.data.requiredBy < t) {
+          items.push({ level: 'bad', text: `${p.name} — material order ${o.number} was due ${fmtDate(o.data.requiredBy)} and isn’t marked received`, href });
+        }
+        if (o.status === 'Draft' && o.created < Date.now() - 3 * 86400000) {
+          items.push({ level: 'warn', text: `${p.name} — ${FORM_TYPES[o.type]} ${o.number} is still a draft`, href });
+        }
+      }));
       const soon = addDays(t, 60);
       state.projects.forEach(p => (p.equipment || []).forEach(e => {
         if (e.warrantyEnd && e.warrantyEnd >= t && e.warrantyEnd <= soon) {
@@ -1369,7 +1397,7 @@
 
     const ui = {
       q: '', trade: '', status: 'open', calMonth: today().slice(0, 7), selDay: today(), calCrew: '',
-      schedView: 'month', tlFrom: mondayOf(today()),
+      schedView: 'month', tlFrom: mondayOf(today()), oType: '', oStatus: 'open',
       rTrade: '', rStatus: 'all', rFrom: addDays(today(), -30), rTo: today(),
       repPhotos: true, repTime: false
     };
@@ -1507,6 +1535,18 @@
               <td class="num">${i.amount ? (i.kind === 'Variation' ? '+' : '−') + money(i.amount) : ''}</td>
             </tr>`).join('')}</tbody>
           </table></div>` : empty('No defects or variations. Log builder defects to fix and extra work the client has asked for.')}
+        </section>
+
+        <h2 class="h-section">Purchase orders & forms
+          <span class="btn-row">
+            <button class="btn btn-ghost btn-sm" onclick="newOrder('${p.id}', 'electrical')">${ICON.plus} Electrical PO</button>
+            <button class="btn btn-ghost btn-sm" onclick="newOrder('${p.id}', 'inspection')">${ICON.plus} Preinspection</button>
+            <button class="btn btn-ghost btn-sm" onclick="newOrder('${p.id}', 'material')">${ICON.plus} Material order</button>
+          </span>
+        </h2>
+        <section class="card">
+          <div class="rows">${p.orders.length ? [...p.orders].sort((a, b) => b.created - a.created).map(o => orderRow(p, o, false)).join('')
+            : empty('No forms yet. Start a preinspection to build the material list, then an electrical PO or material order.')}</div>
         </section>
 
         <h2 class="h-section">Materials <button class="btn btn-ghost btn-sm" onclick="editMaterial('${p.id}')">${ICON.plus} Add</button></h2>
@@ -2047,6 +2087,7 @@
     function settingsView() {
       return `
         <div class="page-head"><h1 class="page-title">Settings</h1></div>
+        ${materialRulesCard()}
         <section class="card">
           <h2>Costing</h2>
           <p class="muted" style="margin-bottom:14px">Used to cost labour for crew members without their own rate. Use your all-in cost per hour (wages, super and on-costs), not the charge-out rate.</p>
@@ -2677,6 +2718,706 @@
         </section>`;
     }
 
+    /* ══════════ Purchase orders & forms ══════════ */
+
+    const FORM_TYPES = { electrical: 'Electrical PO', inspection: 'Preinspection', material: 'Material order' };
+    const FORM_PREFIX = { electrical: 'E', inspection: 'I', material: 'M' };
+    const UNIT_TYPES = ['Ducted Split', 'High-wall Split', 'Multi-head', 'Gas Heater', 'Evap Cooler', 'Other'];
+    const SUPPLIERS = ['Reece', 'AAD', 'GP HVAC', 'Daikin', 'Other'];
+    const OUTDOOR_MOUNTS = ['Wall bracket', 'Ground pad', 'Roof stand', 'Not applicable'];
+
+    /* Unit brand → series → models (same list as the forms app). models: [code, note] */
+    const UNIT_MODELS = (() => {
+      const SPLIT = ['High-wall Split', 'Multi-head'];
+      const sz = (prefix, list) => list.map(n => [prefix + n, (n / 10).toFixed(1) + ' kW']);
+      const codes = (prefix, list) => list.map(n => [prefix + n, '']);
+      return {
+        'Daikin': [
+          { series: 'Alira X wall split', types: SPLIT, models: sz('FTXM', [20, 25, 35, 46, 50, 60, 71, 85, 95]) },
+          { series: 'Cora wall split', types: SPLIT, models: sz('FTXV', [20, 25, 35, 46, 50, 60, 71]) },
+          { series: 'Lite wall split', types: SPLIT, models: sz('FTXF', [20, 25, 35, 50, 60, 71]) },
+          { series: 'Zena wall split', types: SPLIT, models: sz('FTXJ', [20, 25, 35, 50]) },
+          { series: 'US7 wall split', types: SPLIT, models: sz('FTKZ', [25, 35, 50]) },
+          { series: 'Slim ducted', types: ['Ducted Split'], models: sz('FDXM', [25, 35, 50, 60]) },
+          { series: 'Standard Inverter ducted', types: ['Ducted Split'], models: codes('FDYAN', [50, 60, 71, 85, 100, 125, 140, 160]) },
+          { series: 'Premium Inverter ducted', types: ['Ducted Split'], models: codes('FDYQ', [100, 125, 140, 160, 180, 200, 250]) }
+        ],
+        'Mitsubishi Electric': [
+          { series: 'Wall split MSZ-AP', types: SPLIT, models: sz('MSZ-AP', [15, 20, 25, 35, 42, 50, 60, 71, 80]) },
+          { series: 'Wall split MSZ-AY', types: SPLIT, models: sz('MSZ-AY', [25, 35, 42, 50]) },
+          { series: 'Black Diamond wall split', types: SPLIT, models: sz('MSZ-LN', [18, 25, 35, 50, 60]) },
+          { series: 'Bulkhead ducted', types: ['Ducted Split'], models: sz('SEZ-M', [25, 35, 50, 60, 71]) },
+          { series: 'Ducted PEAD-M', types: ['Ducted Split'], models: sz('PEAD-M', [35, 50, 60, 71, 100, 125, 140]) },
+          { series: 'Ducted PEA-M', types: ['Ducted Split'], models: sz('PEA-M', [100, 125, 140, 160, 200]) }
+        ],
+        'Braemar': [
+          { series: 'Ecostar 4 Star ducted gas', types: ['Gas Heater'], models: [] },
+          { series: 'Ecostar 5 Star ducted gas', types: ['Gas Heater'], models: [['TQM516', ''], ['TQM520', '']] },
+          { series: 'Ecostar 6 Star ducted gas', types: ['Gas Heater'], models: [['TQR623N', ''], ['TQR632N', '']] },
+          { series: 'Ecostar 7 Star ducted gas', types: ['Gas Heater'], models: [] },
+          { series: 'Paradigm evaporative', types: ['Evap Cooler'], models: [['LCQ250', '7.6 kW'], ['LCQ350', '10.2 kW'], ['LCQ450', '13.2 kW'], ['LCQ550', '14.1 kW']] },
+          { series: 'Evolution evaporative', types: ['Evap Cooler'], models: [['LCQI250', '8.1 kW']] },
+          { series: 'BMQ evaporative', types: ['Evap Cooler'], models: [['BMQ650', '6.9 kW']] },
+          { series: 'EA series evaporative', types: ['Evap Cooler'], models: [['EA90S', '']] }
+        ],
+        'Bonaire': [
+          { series: 'Ducted gas heater', types: ['Gas Heater'], models: [] },
+          { series: 'Summer Breeze evaporative', types: ['Evap Cooler'], models: [] },
+          { series: 'Silhouette Premium evaporative', types: ['Evap Cooler'], models: [] },
+          { series: 'Silhouette Ultimate evaporative', types: ['Evap Cooler'], models: [] }
+        ],
+        'Brivis': [
+          { series: 'StarPro 6 Universal ducted gas', types: ['Gas Heater'], models: [['SP630EX', '']] },
+          { series: 'Classic Buffalo ducted gas', types: ['Gas Heater'], models: [['BX326', ''], ['BX526', '']] },
+          { series: 'Contour evaporative', types: ['Evap Cooler'], models: [] },
+          { series: 'Promina evaporative', types: ['Evap Cooler'], models: [] }
+        ]
+      };
+    })();
+
+    /* Field layout for each form. pills = tap-to-pick buttons; `other` adds a "specify" box when Other is picked. */
+    const ORDER_FORMS = {
+      electrical: [
+        { title: 'Job', fields: [
+          { k: 'date', label: 'Job date', type: 'date' },
+          { k: 'installer', label: 'Installer', type: 'crew', ph: 'Full name' },
+          { k: 'poNumber', label: 'PO number', ph: 'e.g. PO-12345' }] },
+        { title: 'Unit information', fields: [
+          { k: 'unitType', label: 'Unit type', type: 'pills', options: UNIT_TYPES, other: true },
+          { k: 'brandModel', label: 'Brand & model', type: 'unit' },
+          { k: 'installType', label: 'Install type', type: 'pills', options: ['New Install', 'Changeover'] }] },
+        { title: 'Install information', fields: [
+          { k: 'exterior', label: 'Exterior material', type: 'pills', options: ['Brick Veneer', 'Double Brick', 'Weatherboard', 'Cladding', 'Other'], other: true },
+          { k: 'roofStorey', label: 'Roof storey', type: 'pills', options: ['Single Storey', 'Double Storey'] },
+          { k: 'roofPitch', label: 'Roof pitch', type: 'pills', options: ['Flat', 'Pitched'] },
+          { k: 'roofMaterial', label: 'Roof material', type: 'pills', options: ['Tile', 'Metal'] },
+          { k: 'indoorLocation', label: 'Indoor unit location', ph: 'e.g. Ceiling, hallway' },
+          { k: 'outdoorLocation', label: 'Outdoor unit location', ph: 'e.g. Side of house' },
+          { k: 'switchboardLocation', label: 'Switchboard location', ph: 'e.g. Garage' },
+          { k: 'circuitAmps', label: 'Circuit amps', type: 'number', ph: 'e.g. 20' },
+          { k: 'circuit', label: 'Circuit', type: 'pills', options: ['Single Phase', 'Three Phase'] },
+          { k: 'indoorFanPower', label: 'Indoor fan power required', type: 'pills', options: ['Yes', 'No'] },
+          { k: 'certificateNeeded', label: 'Certificate needed', type: 'pills', options: ['Yes', 'No'] }] },
+        { title: 'Additional items required', fields: [{ k: 'additionalItems', label: '', type: 'textarea', ph: 'List any extra materials or items needed for this job…' }] },
+        { title: 'Other information', fields: [{ k: 'otherInfo', label: '', type: 'textarea', ph: 'Any additional notes, special requirements, or instructions…' }] },
+        { title: 'Photos', special: 'photos' }
+      ],
+      inspection: [
+        { title: 'Inspection', fields: [
+          { k: 'date', label: 'Inspection date', type: 'date' },
+          { k: 'installer', label: 'Installer', type: 'crew', ph: 'Full name' }] },
+        { title: 'Site details', fields: [
+          { k: 'address', label: 'Site address', wide: true, ph: 'Street, suburb, postcode' },
+          { k: 'storey', label: 'Property type', type: 'pills', options: ['Single Storey', 'Double Storey', 'Other'], other: true },
+          { k: 'floorplan', label: 'Floorplan provided', type: 'pills', options: ['Yes', 'No'] }] },
+        { title: 'Unit locations', fields: [
+          { k: 'indoorLocation', label: 'Indoor unit location', ph: 'e.g. Ceiling, hallway' },
+          { k: 'outdoorLocation', label: 'Outdoor unit location', ph: 'e.g. Side of house' },
+          { k: 'outdoorMount', label: 'Outdoor unit mounting', type: 'pills', options: OUTDOOR_MOUNTS }] },
+        { title: 'Unit information', fields: [
+          { k: 'unitType', label: 'Unit type', type: 'pills', options: UNIT_TYPES, other: true },
+          { k: 'brandModel', label: 'Brand & model', type: 'unit' },
+          { k: 'installType', label: 'Install type', type: 'pills', options: ['New Install', 'Changeover'] },
+          { k: 'poRef', label: 'Purchase order reference', ph: 'e.g. PO-00123' },
+          { k: 'supplier', label: 'Supplier', type: 'pills', options: SUPPLIERS, other: true }] },
+        { title: 'Run lengths', note: 'Used by “Suggest materials” to work out pipe, drain, cable and duct quantities.', fields: [
+          { k: 'pipeRun', label: 'Pipe run (m)', type: 'number', ph: 'Refrigerant, gas or water' },
+          { k: 'drainRun', label: 'Drain run (m)', type: 'number' },
+          { k: 'cableRun', label: 'Cable run (m)', type: 'number' },
+          { k: 'outlets', label: 'Number of outlets', type: 'number', ph: 'Ducted, gas or evap' }] },
+        { title: 'Materials', special: 'materials' },
+        { title: 'Notes', fields: [{ k: 'notes', label: '', type: 'textarea', ph: 'Any additional notes, observations or instructions…' }] },
+        { title: 'Photos', special: 'photos' }
+      ],
+      material: [
+        { title: 'Order', fields: [
+          { k: 'date', label: 'Order date', type: 'date' },
+          { k: 'installer', label: 'Ordered by', type: 'crew', ph: 'Full name' },
+          { k: 'requiredBy', label: 'Required by', type: 'date' },
+          { k: 'stage', label: 'For stage', type: 'pills', options: STAGES.map(s => s.label) },
+          { k: 'deliverTo', label: 'Deliver to', type: 'pills', options: ['Site', 'Warehouse', 'Pick up'] },
+          { k: 'deliveryAddress', label: 'Delivery address', wide: true }] },
+        { title: 'Items', special: 'materials' },
+        { title: 'Notes for supplier', fields: [{ k: 'notes', label: '', type: 'textarea', ph: 'Delivery instructions, contact on site…' }] }
+      ]
+    };
+
+    /* ── Suggested materials: editable rules in Settings ──
+       qty = amount (fixed) or amount × run length / outlets + extra, rounded up */
+    const RULE_GROUPS = {
+      'All unit types': null,
+      'Refrigerated (ducted, wall, multi-head)': ['Ducted Split', 'High-wall Split', 'Multi-head'],
+      'Wall & multi-head splits': ['High-wall Split', 'Multi-head'],
+      'Ducted Split': ['Ducted Split'],
+      'High-wall Split': ['High-wall Split'],
+      'Multi-head': ['Multi-head'],
+      'Gas Heater': ['Gas Heater'],
+      'Evap Cooler': ['Evap Cooler']
+    };
+    const RULE_BASIS = [['fixed', 'Fixed amount'], ['pipe', '× pipe run (m)'], ['drain', '× drain run (m)'], ['cable', '× cable run (m)'], ['outlets', '× outlets']];
+    const REF = 'Refrigerated (ducted, wall, multi-head)', WALL = 'Wall & multi-head splits';
+    const DEFAULT_MATERIAL_RULES = [
+      ['r1', 'Pair coil (size to suit unit)', 'm', REF, 'pipe', 1, 1],
+      ['r2', 'Interconnecting cable 4-core', 'm', REF, 'cable', 1, 1],
+      ['r3', 'Insulation tape', 'roll', REF, 'fixed', 1],
+      ['r4', 'Outdoor isolator', 'ea', REF, 'fixed', 1],
+      ['r5', 'Wall bracket', 'ea', REF, 'fixed', 1, 0, 'Wall bracket'],
+      ['r6', 'Condenser ground pad', 'ea', REF, 'fixed', 1, 0, 'Ground pad'],
+      ['r7', 'Anti-vibration feet', 'set', REF, 'fixed', 1, 0, 'Ground pad'],
+      ['r8', 'Roof stand', 'ea', REF, 'fixed', 1, 0, 'Roof stand'],
+      ['r9', 'Condensate drain hose 16 mm', 'm', WALL, 'drain', 1, 1],
+      ['r10', 'Pipe duct cover 75 mm', 'm', WALL, 'pipe', 1, 0],
+      ['r11', 'Wall penetration cover', 'ea', WALL, 'fixed', 1],
+      ['r12', 'Condensate drain pipe 20 mm', 'm', 'Ducted Split', 'drain', 1, 1],
+      ['r13', 'Ceiling outlet / diffuser', 'ea', 'Ducted Split', 'outlets', 1, 0],
+      ['r14', 'Flexible duct (6 m length)', 'ea', 'Ducted Split', 'outlets', 1, 0],
+      ['r15', 'Takeoff spigot', 'ea', 'Ducted Split', 'outlets', 1, 0],
+      ['r16', 'Return air grille & filter', 'ea', 'Ducted Split', 'fixed', 1],
+      ['r17', 'Plenum / zone box', 'ea', 'Ducted Split', 'fixed', 1],
+      ['r18', 'Drain safe tray', 'ea', 'Ducted Split', 'fixed', 1],
+      ['r19', 'Wall controller', 'ea', 'Ducted Split', 'fixed', 1],
+      ['r20', 'Duct tape', 'roll', 'Ducted Split', 'fixed', 2],
+      ['r21', 'Flue kit', 'ea', 'Gas Heater', 'fixed', 1],
+      ['r22', 'Gas pipe', 'm', 'Gas Heater', 'pipe', 1, 1],
+      ['r23', 'Gas isolation valve', 'ea', 'Gas Heater', 'fixed', 1],
+      ['r24', 'Flexible duct (6 m length)', 'ea', 'Gas Heater', 'outlets', 1, 0],
+      ['r25', 'Floor / ceiling outlet', 'ea', 'Gas Heater', 'outlets', 1, 0],
+      ['r26', 'Return air grille & filter', 'ea', 'Gas Heater', 'fixed', 1],
+      ['r27', 'Roof transition / roof jack', 'ea', 'Evap Cooler', 'fixed', 1],
+      ['r28', 'Water supply line 1/2"', 'm', 'Evap Cooler', 'pipe', 1, 1],
+      ['r29', 'Drain line', 'm', 'Evap Cooler', 'drain', 1, 1],
+      ['r30', 'Ceiling outlet', 'ea', 'Evap Cooler', 'outlets', 1, 0],
+      ['r31', 'Flexible duct (6 m length)', 'ea', 'Evap Cooler', 'outlets', 1, 0],
+      ['r32', 'Dump valve kit', 'ea', 'Evap Cooler', 'fixed', 1],
+      ['r33', 'Wall controller', 'ea', 'Evap Cooler', 'fixed', 1]
+    ].map(([id, name, unit, applies, basis, amount, extra = 0, when = '']) => ({ id, name, unit, applies, basis, amount: String(amount), extra: String(extra), when }));
+
+    /* Returns [list, skipped] — skipped = per-metre/outlet items left out because no length/outlet count was entered */
+    function suggestMaterials(d) {
+      const meas = { pipe: parseFloat(d.pipeRun) || 0, drain: parseFloat(d.drainRun) || 0, cable: parseFloat(d.cableRun) || 0, outlets: parseFloat(d.outlets) || 0 };
+      let skipped = 0;
+      const list = state.settings.materialRules.filter(r => {
+        const g = RULE_GROUPS[r.applies];
+        return g !== undefined && (!g || g.includes(d.unitType)) && (!r.when || r.when === d.outdoorMount);
+      }).map(r => {
+        const amount = parseFloat(r.amount) || 0;
+        let qty = amount;
+        if (r.basis !== 'fixed') {
+          if (!meas[r.basis]) { skipped++; return null; }
+          qty = Math.ceil(meas[r.basis] * amount + (parseFloat(r.extra) || 0));
+        }
+        return qty > 0 ? { id: uid(), name: r.name, qty: String(r2(qty)), unit: r.unit, supplier: d.supplier === 'Other' ? '' : d.supplier || '', stock: '' } : null;
+      }).filter(Boolean);
+      return [list, skipped];
+    }
+
+    const getOrder = (pid, oid) => getP(pid).orders.find(o => o.id === oid);
+
+    function orderStatusTag(o) {
+      const cls = { Draft: 'tag-warn', Submitted: 'tag-good', Ordered: '', Received: 'tag-good' }[o.status] || '';
+      return `<span class="tag ${cls}">${esc(o.status)}</span>`;
+    }
+
+    function orderRow(p, o, showProject) {
+      const d = o.data;
+      const detail = o.type === 'material'
+        ? `${o.materials.length} item${o.materials.length === 1 ? '' : 's'}${d.requiredBy ? ' · required ' + fmtDate(d.requiredBy) : ''}`
+        : esc(d.brandModel || d.unitType || '');
+      return `<a class="brow" href="#/project/${p.id}/order/${o.id}" style="align-items:center">
+        <span class="doc-icon">${ICON.file}</span>
+        <div class="brow-main">
+          <div class="brow-title">${FORM_TYPES[o.type]} · ${esc(o.type === 'electrical' && d.poNumber ? d.poNumber : o.number)}</div>
+          <div class="muted">${[showProject ? esc(p.name) : '', fmtDate(d.date), esc(d.installer || ''), detail].filter(Boolean).join(' · ')}</div>
+        </div>
+        ${orderStatusTag(o)}
+      </a>`;
+    }
+
+    /* Copies the unit details from the project's latest preinspection into a new form */
+    function latestInspection(p) {
+      return [...p.orders].filter(o => o.type === 'inspection').sort((a, b) => b.created - a.created)[0];
+    }
+
+    function newOrder(pid, type, fromId) {
+      const p = getP(pid);
+      const n = p.orders.filter(o => o.type === type).length + 1;
+      const o = { id: uid(), type, number: `${p.jobNo}-${FORM_PREFIX[type]}${n}`, status: 'Draft', created: Date.now(), data: { date: today(), installer: '' }, materials: [], photos: [] };
+      const insp = latestInspection(p);
+      const unitKeys = ['unitType', 'unitTypeOther', 'brand', 'model', 'modelOther', 'brandModel', 'installType', 'indoorLocation', 'outdoorLocation'];
+      if (type === 'electrical') {
+        o.data.poNumber = o.number;
+        if (insp) unitKeys.forEach(k => { if (insp.data[k]) o.data[k] = insp.data[k]; });
+        else if (p.equipment[0]) o.data.brandModel = p.equipment[0].brandModel;
+      }
+      if (type === 'inspection') o.data.address = p.address;
+      if (type === 'material') {
+        Object.assign(o.data, { deliverTo: 'Site', deliveryAddress: p.address, stage: currentStage(p)?.label || '' });
+        const src = fromId ? p.orders.find(x => x.id === fromId) : insp;
+        if (src && src.materials.length) {
+          const needed = src.materials.filter(m => m.stock !== 'On Hand');
+          (needed.length ? needed : src.materials).forEach(m => o.materials.push({ ...m, id: uid(), stock: '', supplier: m.supplier || (src.data.supplier !== 'Other' ? src.data.supplier : '') || '' }));
+          o.data.source = src.number;
+        }
+      }
+      p.orders.push(o);
+      save();
+      location.hash = `#/project/${pid}/order/${o.id}`;
+    }
+
+    function setOrderField(pid, oid, k, v, rerender) {
+      const o = getOrder(pid, oid);
+      o.data[k] = v;
+      if (k === 'unitType') {
+        /* Drop a brand/model that doesn't come in this unit type */
+        const ok = !o.data.brand || o.data.brand === 'Other' || unitSeries(o.data.brand, v).length;
+        if (!ok) Object.assign(o.data, { brand: '', model: '', modelOther: '', brandModel: '' });
+      }
+      save();
+      if (rerender) render();
+    }
+
+    const unitSeries = (brand, type) => (UNIT_MODELS[brand] || []).filter(s => !type || type === 'Other' || s.types.includes(type));
+
+    function brandModelText(d) {
+      const b = d.brand || '', m = d.model || '', typed = (d.modelOther || '').trim();
+      if (b === 'Other') return typed;
+      if (m === 'Other') return [b, typed].filter(Boolean).join(' ');
+      if (m.startsWith('?')) return [b, m.slice(1), typed].filter(Boolean).join(' ');
+      return [b, m].filter(Boolean).join(' ');
+    }
+
+    function setUnit(pid, oid, k, v, typing) {
+      const d = getOrder(pid, oid).data;
+      d[k] = v;
+      if (k === 'brand') { d.model = ''; d.modelOther = ''; }
+      if (k === 'model') d.modelOther = '';
+      d.brandModel = brandModelText(d);
+      save();
+      if (!typing) render();
+    }
+
+    function unitPickerHTML(o, P, ro) {
+      const d = o.data, dis = ro ? 'disabled' : '';
+      const brands = Object.keys(UNIT_MODELS).filter(b => unitSeries(b, d.unitType).length);
+      const series = d.brand && d.brand !== 'Other' ? unitSeries(d.brand, d.unitType) : [];
+      const needTyped = d.brand === 'Other' || d.model === 'Other' || (d.model || '').startsWith('?');
+      /* Older forms (or ones started from equipment) may only have the combined text */
+      if (!d.brand && d.brandModel && ro) return `<div class="fwide"><label class="lbl">Brand & model</label><input value="${esc(d.brandModel)}" disabled /></div>`;
+      const sel = (v, cur) => v === cur ? 'selected' : '';
+      return `
+        <div><label class="lbl">Unit brand</label>
+          <select ${dis} onchange="setUnit(${P},'brand',this.value)">
+            <option value="">Select brand…</option>
+            ${brands.map(b => `<option ${sel(b, d.brand)}>${esc(b)}</option>`).join('')}
+            <option value="Other" ${sel('Other', d.brand)}>Other</option>
+          </select></div>
+        <div><label class="lbl">Model</label>
+          <select ${dis || (series.length ? '' : 'disabled')} onchange="setUnit(${P},'model',this.value)">
+            ${series.length ? `<option value="">Select model…</option>
+              ${series.map(s => `<optgroup label="${esc(s.series)}">
+                ${s.models.map(([code, note]) => `<option value="${esc(code)}" ${sel(code, d.model)}>${esc(code)}${note ? '  ·  ' + note : ''}</option>`).join('')}
+                <option value="?${esc(s.series)}" ${sel('?' + s.series, d.model)}>${s.models.length ? 'Other ' + esc(s.series) + ' model…' : esc(s.series) + ' (type model no.)'}</option>
+              </optgroup>`).join('')}
+              <option value="Other" ${sel('Other', d.model)}>Other / not listed</option>`
+            : `<option>${d.brand === 'Other' ? 'Type below' : 'Select brand first'}</option>`}
+          </select></div>
+        ${needTyped ? `<div class="fwide"><label class="lbl">${d.brand === 'Other' ? 'Brand & model #' : 'Model #'}</label>
+          <input value="${esc(d.modelOther || '')}" placeholder="${d.brand === 'Other' ? 'e.g. Fujitsu ASTH25KMTC' : 'Model number'}" ${dis} oninput="setUnit(${P},'modelOther',this.value,true)" /></div>` : ''}`;
+    }
+
+    function orderFieldHTML(f, o, P, ro) {
+      const v = o.data[f.k] ?? '';
+      const dis = ro ? 'disabled' : '';
+      if (f.type === 'unit') return unitPickerHTML(o, P, ro);
+      if (f.type === 'pills') {
+        return `<div class="fwide"><label class="lbl">${f.label}</label>
+          <div class="chips">${f.options.map(opt => `<button type="button" class="chip ${v === opt ? 'on' : ''}" ${dis}
+            onclick="setOrderField(${P},'${f.k}',${v === opt ? "''" : `'${opt}'`},true)">${esc(opt)}</button>`).join('')}</div>
+          ${f.other && v === 'Other' ? `<input style="margin-top:10px" value="${esc(o.data[f.k + 'Other'] || '')}" placeholder="Specify…" ${dis} oninput="setOrderField(${P},'${f.k}Other',this.value)" />` : ''}
+        </div>`;
+      }
+      if (f.type === 'textarea') {
+        return `<div class="fwide">${f.label ? `<label class="lbl">${f.label}</label>` : ''}<textarea ${dis} placeholder="${esc(f.ph || '')}" oninput="setOrderField(${P},'${f.k}',this.value)">${esc(v)}</textarea></div>`;
+      }
+      const type = f.type === 'crew' || !f.type ? 'text' : f.type;
+      return `<div class="${f.wide ? 'fwide' : ''}"><label class="lbl">${f.label}</label>
+        <input type="${type}" value="${esc(v)}" placeholder="${esc(f.ph || '')}" ${dis}
+          ${f.type === 'crew' ? 'list="crew-names" autocomplete="off"' : ''} ${f.type === 'number' ? 'inputmode="decimal" min="0" step="any"' : ''}
+          oninput="setOrderField(${P},'${f.k}',this.value)" /></div>`;
+    }
+
+    function orderMaterialsHTML(o, P, ro) {
+      const dis = ro ? 'disabled' : '';
+      const rows = o.materials.map(m => `<div class="mrow">
+        <input class="m-name" value="${esc(m.name)}" placeholder="Material" ${dis} oninput="setMat(${P},'${m.id}','name',this.value)" />
+        <input type="number" inputmode="decimal" min="0" step="any" value="${esc(m.qty)}" placeholder="Qty" ${dis} oninput="setMat(${P},'${m.id}','qty',this.value)" />
+        <input value="${esc(m.unit)}" list="unit-list" placeholder="Unit" ${dis} oninput="setMat(${P},'${m.id}','unit',this.value)" />
+        <select ${dis} onchange="setMat(${P},'${m.id}','supplier',this.value)">
+          <option value="">Supplier…</option>
+          ${SUPPLIERS.map(s => `<option ${m.supplier === s ? 'selected' : ''}>${s}</option>`).join('')}
+        </select>
+        ${o.type === 'inspection' ? `<div class="seg m-stock">${['On Hand', 'Not On Hand'].map(s => `<button type="button" class="${m.stock === s ? 'on' : ''}" ${dis}
+          onclick="setMat(${P},'${m.id}','stock',${m.stock === s ? "''" : `'${s}'`},true)">${s === 'On Hand' ? 'On hand' : 'Not on hand'}</button>`).join('')}</div>` : ''}
+        ${ro ? '' : `<button type="button" class="icon-btn" title="Remove" onclick="delMat(${P},'${m.id}')">${ICON.x}</button>`}
+      </div>`).join('');
+      return `${rows || empty(o.type === 'inspection' ? 'No materials yet. Fill in the unit type and run lengths, then tap Suggest materials.' : 'No items yet.')}
+        ${ro ? '' : `<div class="btn-row" style="margin-top:14px">
+          ${o.type === 'inspection' ? `<button type="button" class="btn btn-sm" onclick="suggestForOrder(${P})">Suggest materials</button>` : ''}
+          <button type="button" class="btn btn-ghost btn-sm" onclick="addMat(${P})">${ICON.plus} Add item</button>
+        </div>`}`;
+    }
+
+    function setMat(pid, oid, mid, k, v, rerender) {
+      getOrder(pid, oid).materials.find(m => m.id === mid)[k] = v;
+      save();
+      if (rerender) render();
+    }
+
+    function addMat(pid, oid) {
+      const o = getOrder(pid, oid);
+      o.materials.push({ id: uid(), name: '', qty: '1', unit: 'ea', supplier: o.data.supplier && o.data.supplier !== 'Other' ? o.data.supplier : '', stock: '' });
+      save(); render();
+      const inputs = document.querySelectorAll('.mrow .m-name');
+      inputs[inputs.length - 1]?.focus();
+    }
+
+    function delMat(pid, oid, mid) {
+      const o = getOrder(pid, oid);
+      o.materials = o.materials.filter(m => m.id !== mid);
+      save(); render();
+    }
+
+    function suggestForOrder(pid, oid) {
+      const o = getOrder(pid, oid);
+      if (!o.data.unitType) { toast('Pick a unit type first'); return; }
+      const [items, skipped] = suggestMaterials(o.data);
+      if (!items.length) { toast(skipped ? 'Enter run lengths or outlets first' : 'No material rules for this unit type — add some in Settings'); return; }
+      if (o.materials.length && confirm(`Replace the ${o.materials.length} item(s) already listed with ${items.length} suggested item(s)?\n\nOK = replace the list\nCancel = keep the list and add any suggested items that aren't on it`)) {
+        o.materials = items;
+      } else {
+        const have = new Set(o.materials.map(m => m.name.trim().toLowerCase()));
+        o.materials.push(...items.filter(m => !have.has(m.name.toLowerCase())));
+      }
+      save(); render();
+      toast(`${items.length} item(s) suggested${skipped ? ` · ${skipped} need a run length or outlet count` : ''} — check quantities`);
+    }
+
+    async function addOrderPhotos(pid, oid, files) {
+      const o = getOrder(pid, oid);
+      toast('Saving photos…');
+      for (const file of files) {
+        try {
+          const data = await compressImage(file);
+          const id = uid();
+          await idb('photos', 'readwrite', s => s.put(data, id));
+          photoCache.set(id, data);
+          queueUpload('photos', id);
+          o.photos.push({ id, caption: '', at: Date.now() });
+        } catch (err) {
+          console.error(err);
+          toast('A photo could not be saved');
+        }
+      }
+      save(); render();
+    }
+
+    function openOrderPhoto(pid, oid, phid) {
+      const o = getOrder(pid, oid);
+      showModal(`
+        <div class="lightbox"><img data-photo="${phid}" alt="" /></div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+          ${o.status === 'Draft' ? `<span class="spacer"></span><button class="btn btn-danger" onclick="deleteOrderPhoto('${pid}','${oid}','${phid}')">Delete</button>` : ''}
+        </div>`);
+      loadPhotos();
+    }
+
+    async function deleteOrderPhoto(pid, oid, phid) {
+      if (!confirm('Delete this photo?')) return;
+      const o = getOrder(pid, oid);
+      o.photos = o.photos.filter(x => x.id !== phid);
+      await idb('photos', 'readwrite', s => s.delete(phid));
+      photoCache.delete(phid);
+      removeRemoteFile('photos', phid);
+      save(); closeModal(); render();
+    }
+
+    function orderView(p, oid) {
+      const o = p.orders.find(x => x.id === oid);
+      if (!o) return notFound();
+      const ro = o.status !== 'Draft';
+      const P = `'${p.id}','${o.id}'`;
+      const isMat = o.type === 'material';
+
+      const sections = ORDER_FORMS[o.type].map(sec => {
+        let body;
+        if (sec.special === 'materials') body = orderMaterialsHTML(o, P, ro);
+        else if (sec.special === 'photos') {
+          body = `${o.photos.length ? `<div class="photos">${o.photos.map(ph => `<button onclick="openOrderPhoto(${P},'${ph.id}')"><img data-photo="${ph.id}" alt="" /></button>`).join('')}</div>` : empty('No photos.')}
+            ${ro ? '' : `<label class="btn btn-ghost btn-sm" style="margin-top:12px">${ICON.camera} Add photos
+              <input type="file" accept="image/*" multiple hidden onchange="addOrderPhotos(${P}, this.files)" /></label>`}`;
+        } else body = `<div class="fgrid">${sec.fields.map(f => orderFieldHTML(f, o, P, ro)).join('')}</div>`;
+        return `<section class="card"><h2>${sec.title}${sec.special === 'materials' && o.materials.length ? ` <span class="muted">${o.materials.length} item${o.materials.length === 1 ? '' : 's'}</span>` : ''}</h2>
+          ${sec.note && !ro ? `<p class="section-note">${sec.note}</p>` : ''}${body}</section>`;
+      }).join('');
+
+      const print = `<a class="btn btn-ghost" href="#/project/${p.id}/order/${o.id}/print">${ICON.print} Print / save PDF</a>`;
+      const reopen = `<button class="btn btn-ghost" onclick="reopenOrder(${P})">Reopen to edit</button>`;
+      let actions;
+      if (o.status === 'Draft') {
+        actions = `<button class="btn" onclick="${isMat ? `markOrdered(${P})` : `submitOrder(${P})`}">${isMat ? 'Mark as ordered' : 'Submit form'}</button>
+          ${print}<span class="spacer"></span>
+          <button class="btn btn-danger" onclick="deleteOrder(${P})">Delete</button>`;
+      } else if (o.status === 'Submitted') {
+        actions = `${print}${o.type === 'inspection' ? `<button class="btn" onclick="newOrder('${p.id}','material','${o.id}')">Create material order</button>` : ''}${reopen}`;
+      } else if (o.status === 'Ordered') {
+        actions = `<button class="btn" onclick="markReceived(${P})">Mark as received</button>${print}${reopen}`;
+      } else {
+        actions = `${print}<span class="faint">Received ${o.received ? fmtDate(isoOf(new Date(o.received)), true) : ''} · items added to the project’s materials</span>`;
+      }
+
+      return `
+        <a class="back" href="#/project/${p.id}">${ICON.back} ${esc(p.name)}</a>
+        <div class="page-head">
+          <div>
+            <div class="faint" style="margin-bottom:6px">${esc(o.number)} · ${esc(p.jobNo)}${o.data.source ? ' · from ' + esc(o.data.source) : ''}</div>
+            <h1 class="page-title">${FORM_TYPES[o.type]}</h1>
+          </div>
+          ${orderStatusTag(o)}
+        </div>
+        ${!ro ? '<p class="faint" style="margin:-6px 4px 14px">Saved as you type.</p>' : ''}
+        <datalist id="crew-names">${activeCrew().map(c => `<option value="${esc(c.name)}"></option>`).join('')}</datalist>
+        <datalist id="unit-list">${UNITS.map(u => `<option value="${u}"></option>`).join('')}</datalist>
+        <div class="stack">${sections}</div>
+        <div class="modal-actions" style="margin-top:20px;align-items:center">${actions}</div>`;
+    }
+
+    function missingFields(o) {
+      const d = o.data, out = [];
+      if (!d.date) out.push('date');
+      if (!(d.installer || '').trim()) out.push(o.type === 'material' ? 'ordered by' : 'installer');
+      if (o.type !== 'material' && !d.unitType) out.push('unit type');
+      if (o.type === 'material' && !o.materials.some(m => m.name.trim())) out.push('at least one item');
+      return out;
+    }
+
+    function submitOrder(pid, oid) {
+      const o = getOrder(pid, oid);
+      const missing = missingFields(o);
+      if (missing.length) { toast('Please fill in: ' + missing.join(', ')); return; }
+      o.materials = o.materials.filter(m => m.name.trim());
+      Object.assign(o, { status: 'Submitted', submitted: Date.now(), submittedBy: session?.user?.email || '' });
+      save(); render(); window.scrollTo(0, 0);
+      toast('Submitted and saved to the project');
+    }
+
+    function markOrdered(pid, oid) {
+      const o = getOrder(pid, oid);
+      const missing = missingFields(o);
+      if (missing.length) { toast('Please fill in: ' + missing.join(', ')); return; }
+      o.materials = o.materials.filter(m => m.name.trim());
+      Object.assign(o, { status: 'Ordered', submitted: Date.now(), submittedBy: session?.user?.email || '' });
+      save(); render(); window.scrollTo(0, 0);
+      toast('Marked as ordered');
+    }
+
+    function markReceived(pid, oid) {
+      const p = getP(pid), o = getOrder(pid, oid);
+      if (!confirm(`Mark ${o.number} as received and add its ${o.materials.length} item(s) to the project’s materials?`)) return;
+      const stage = STAGES.find(s => s.label === o.data.stage)?.key || '';
+      o.materials.forEach(m => p.materials.push({ id: uid(), name: m.name, qty: m.qty, unit: m.unit, stage, supplier: m.supplier, cost: '', note: `From ${o.number}` }));
+      Object.assign(o, { status: 'Received', received: Date.now() });
+      save(); render();
+      toast('Received — items added to the project’s materials');
+    }
+
+    function reopenOrder(pid, oid) {
+      const o = getOrder(pid, oid);
+      if (!confirm('Reopen this form for editing? It will go back to draft until it’s submitted again.')) return;
+      o.status = 'Draft';
+      save(); render();
+    }
+
+    async function deleteOrder(pid, oid) {
+      const p = getP(pid), o = getOrder(pid, oid);
+      if (!confirm(`Delete ${FORM_TYPES[o.type]} ${o.number}?`)) return;
+      await idb('photos', 'readwrite', s => o.photos.forEach(ph => s.delete(ph.id)));
+      o.photos.forEach(ph => { photoCache.delete(ph.id); removeRemoteFile('photos', ph.id); });
+      p.orders = p.orders.filter(x => x.id !== oid);
+      save();
+      location.hash = `#/project/${pid}`;
+    }
+
+    /* ── Orders tab: every form on every project ── */
+
+    function ordersView() {
+      const all = state.projects.flatMap(p => p.orders.map(o => ({ p, o })))
+        .filter(({ o }) => (!ui.oType || o.type === ui.oType)
+          && (ui.oStatus === 'all' || (ui.oStatus === 'open' ? ['Draft', 'Ordered'].includes(o.status) : o.status === ui.oStatus)))
+        .sort((a, b) => b.o.created - a.o.created);
+      const projects = state.projects.filter(p => p.status !== 'Complete');
+      return `
+        <div class="page-head">
+          <h1 class="page-title">Orders & forms</h1>
+          ${projects.length ? `<button class="btn" onclick="pickOrderProject()">${ICON.plus} New form</button>` : ''}
+        </div>
+        <div class="filters">
+          <select onchange="ui.oType = this.value; render()">
+            <option value="">All forms</option>
+            ${Object.entries(FORM_TYPES).map(([k, l]) => `<option value="${k}" ${ui.oType === k ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+          <select onchange="ui.oStatus = this.value; render()">
+            ${[['open', 'Open (drafts + awaiting delivery)'], ['all', 'All statuses'], ['Draft', 'Draft'], ['Submitted', 'Submitted'], ['Ordered', 'Ordered'], ['Received', 'Received']]
+              .map(([v, l]) => `<option value="${v}" ${ui.oStatus === v ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+        </div>
+        <section class="card"><div class="rows">${all.length ? all.map(({ p, o }) => orderRow(p, o, true)).join('')
+          : empty(state.projects.some(p => p.orders.length) ? 'No forms match these filters.' : 'No forms yet. Use “New form”, or open a project and start one there.')}</div></section>`;
+    }
+
+    function pickOrderProject() {
+      const projects = state.projects.filter(p => p.status !== 'Complete').sort((a, b) => String(b.jobNo).localeCompare(String(a.jobNo)));
+      openForm({
+        title: 'New form',
+        saveLabel: 'Start form',
+        fields: [
+          { name: 'project', label: 'Project', options: projects.map(p => [p.id, `${p.jobNo} · ${p.name}`]), wide: true },
+          { name: 'type', label: 'Form', options: Object.entries(FORM_TYPES), wide: true }
+        ],
+        onSave: v => { newOrder(v.project, v.type); }
+      });
+    }
+
+    /* ── Printable form / supplier order ── */
+
+    function orderValue(f, d) {
+      if (f.type === 'unit') return d.brandModel || '';
+      let v = d[f.k] ?? '';
+      if (f.other && v === 'Other' && d[f.k + 'Other']) v = `Other (${d[f.k + 'Other']})`;
+      if (f.type === 'date') v = v ? fmtDate(v, true) : '';
+      return v;
+    }
+
+    function orderPrintView(p, oid) {
+      const o = p.orders.find(x => x.id === oid);
+      if (!o) return notFound();
+      const d = o.data;
+      const head = sub => `<div class="r-head">
+          <div><h1>${FORM_TYPES[o.type]}</h1><div class="r-sub">${esc(sub)}</div></div>
+          <img src="./logo.jpg" alt="Heatcool Masters" />
+        </div>`;
+      const bar = `<div class="report-bar no-print">
+          <a class="back" href="#/project/${p.id}/order/${o.id}">${ICON.back} Back</a>
+          <button class="btn" onclick="window.print()">${ICON.print} Print / save PDF</button>
+        </div>`;
+      const foot = `<div class="r-foot">Heatcool Masters · ${esc(o.number)} · ${esc(o.status)} · Generated ${new Date().toLocaleString('en-AU')}</div>`;
+
+      if (o.type === 'material') {
+        /* One page per supplier, ready to send */
+        const groups = {};
+        o.materials.forEach(m => { (groups[m.supplier || 'Supplier not set'] = groups[m.supplier || 'Supplier not set'] || []).push(m); });
+        return bar + Object.entries(groups).map(([sup, items], i) => `
+          <article class="report ${i ? 'r-break' : ''}" style="${i ? 'margin-top:16px' : ''}">
+            ${head(`${o.number} · ${sup}`)}
+            <table class="r-kv">
+              <tr><th>Supplier</th><td><b>${esc(sup)}</b></td></tr>
+              <tr><th>Order number</th><td>${esc(o.number)}</td></tr>
+              <tr><th>Job</th><td>${esc(p.jobNo)} · ${esc(p.name)}</td></tr>
+              <tr><th>Order date</th><td>${fmtDate(d.date, true)}</td></tr>
+              ${d.requiredBy ? `<tr><th>Required by</th><td><b>${fmtDate(d.requiredBy, true)}</b></td></tr>` : ''}
+              <tr><th>Deliver to</th><td>${esc(d.deliverTo || '')}${d.deliveryAddress && d.deliverTo !== 'Pick up' ? ' — ' + esc(d.deliveryAddress) : ''}</td></tr>
+              <tr><th>Ordered by</th><td>${esc(d.installer || '')}</td></tr>
+            </table>
+            <h2>Items</h2>
+            <table class="r-tbl">
+              <tr><th>Material</th><th class="num">Qty</th><th>Unit</th></tr>
+              ${items.map(m => `<tr><td>${esc(m.name)}</td><td class="num"><b>${esc(m.qty)}</b></td><td>${esc(m.unit)}</td></tr>`).join('')}
+            </table>
+            ${d.notes ? `<h3>Notes</h3><div class="r-notes">${esc(d.notes)}</div>` : ''}
+            ${foot}
+          </article>`).join('') || `<article class="report">${head(o.number)}<p>No items.</p></article>`;
+      }
+
+      const sections = ORDER_FORMS[o.type].map(sec => {
+        if (sec.special === 'materials') {
+          return o.materials.length ? `<h2>Materials</h2><table class="r-tbl">
+            <tr><th>Material</th><th class="num">Qty</th><th>Unit</th><th>Supplier</th><th>Stock</th></tr>
+            ${o.materials.map(m => `<tr><td>${esc(m.name)}</td><td class="num">${esc(m.qty)}</td><td>${esc(m.unit)}</td><td>${esc(m.supplier || '')}</td><td>${esc(m.stock || '')}</td></tr>`).join('')}
+          </table>` : '';
+        }
+        if (sec.special === 'photos') {
+          return o.photos.length ? `<h2>Photos</h2><div class="r-photos">${o.photos.map(ph => `<figure><img data-photo="${ph.id}" alt="" /></figure>`).join('')}</div>` : '';
+        }
+        const rows = sec.fields.map(f => [f.label || sec.title, orderValue(f, d)]).filter(([, v]) => v !== '');
+        if (!rows.length) return '';
+        return `<h2>${sec.title}</h2>${sec.fields.length === 1 && sec.fields[0].type === 'textarea'
+          ? `<div class="r-notes">${esc(rows[0][1])}</div>`
+          : `<table class="r-kv">${rows.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>`}`;
+      }).join('');
+
+      return `${bar}<article class="report">
+        ${head(`${o.type === 'electrical' && d.poNumber ? d.poNumber : o.number} · ${p.jobNo} · ${p.name}`)}
+        <table class="r-kv">
+          <tr><th>Project</th><td>${esc(p.name)}</td></tr>
+          <tr><th>Site address</th><td>${esc(p.address || d.address || '')}</td></tr>
+          <tr><th>Status</th><td>${esc(o.status)}${o.submitted ? ' · ' + fmtTime(o.submitted) : ''}${o.submittedBy ? ' by ' + esc(o.submittedBy) : ''}</td></tr>
+        </table>
+        ${sections}
+        ${foot}
+      </article>`;
+    }
+
+    /* ── Settings: material suggestion rules ── */
+
+    function materialRulesCard() {
+      const rules = state.settings.materialRules;
+      const opt = (v, cur, label = v) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(label)}</option>`;
+      return `<section class="card">
+        <h2>Material suggestions</h2>
+        <p class="muted" style="margin-bottom:14px">Rules used by “Suggest materials” on preinspection forms. Quantity is the amount × the run length (or outlet count) from the form, plus the extra, rounded up — or a fixed amount. These are starting defaults: adjust them to how your team actually installs.</p>
+        <div class="tbl-wrap"><table class="tbl" style="min-width:860px">
+          <thead><tr><th>Item</th><th>Unit</th><th>Applies to</th><th>Quantity</th><th>Amount</th><th>Extra</th><th>Only when mounted on</th><th></th></tr></thead>
+          <tbody>${rules.map(r => `<tr>
+            <td><input value="${esc(r.name)}" onchange="setRule('${r.id}','name',this.value)" /></td>
+            <td style="width:80px"><input value="${esc(r.unit)}" list="unit-list" onchange="setRule('${r.id}','unit',this.value)" /></td>
+            <td><select onchange="setRule('${r.id}','applies',this.value)">${Object.keys(RULE_GROUPS).map(g => opt(g, r.applies)).join('')}</select></td>
+            <td><select onchange="setRule('${r.id}','basis',this.value)">${RULE_BASIS.map(([v, l]) => opt(v, r.basis, l)).join('')}</select></td>
+            <td style="width:80px"><input type="number" step="any" min="0" value="${esc(r.amount)}" onchange="setRule('${r.id}','amount',this.value)" /></td>
+            <td style="width:80px"><input type="number" step="any" min="0" value="${esc(r.extra)}" ${r.basis === 'fixed' ? 'disabled' : ''} onchange="setRule('${r.id}','extra',this.value)" /></td>
+            <td><select onchange="setRule('${r.id}','when',this.value)">${opt('', r.when, 'Any')}${OUTDOOR_MOUNTS.slice(0, 3).map(m => opt(m, r.when)).join('')}</select></td>
+            <td><button class="icon-btn" title="Remove" onclick="delRule('${r.id}')">${ICON.x}</button></td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+        <datalist id="unit-list">${UNITS.map(u => `<option value="${u}"></option>`).join('')}</datalist>
+        <div class="btn-row" style="margin-top:14px">
+          <button class="btn btn-ghost btn-sm" onclick="addRule()">${ICON.plus} Add rule</button>
+          <button class="btn btn-ghost btn-sm" onclick="resetRules()">Reset to defaults</button>
+        </div>
+      </section>`;
+    }
+
+    function setRule(id, k, v) {
+      state.settings.materialRules.find(r => r.id === id)[k] = v;
+      save();
+      if (k === 'basis') render();
+    }
+
+    function addRule() {
+      state.settings.materialRules.push({ id: uid(), name: '', unit: 'ea', applies: 'All unit types', basis: 'fixed', amount: '1', extra: '0', when: '' });
+      save(); render();
+    }
+
+    function delRule(id) {
+      state.settings.materialRules = state.settings.materialRules.filter(r => r.id !== id);
+      save(); render();
+    }
+
+    function resetRules() {
+      if (!confirm('Replace all material suggestion rules with the defaults?')) return;
+      state.settings.materialRules = DEFAULT_MATERIAL_RULES.map(r => ({ ...r }));
+      save(); render();
+    }
+
     /* ══════════ Defects & variations ══════════ */
 
     function issueStatusTag(i) {
@@ -3137,7 +3878,7 @@
         return;
       }
       setSyncStatus(sync.status);
-      const [view = '', id, sub, key] = location.hash.replace(/^#\/?/, '').split('/');
+      const [view = '', id, sub, key, extra] = location.hash.replace(/^#\/?/, '').split('/');
       const tab = view === 'project' ? 'projects' : view;
       document.querySelectorAll('#tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
 
@@ -3147,12 +3888,17 @@
       else if (view === 'schedule') html = scheduleView();
       else if (view === 'crew') html = crewView();
       else if (view === 'reports') html = reportsView();
+      else if (view === 'orders') html = ordersView();
       else if (view === 'settings') html = settingsView();
       else if (view === 'project') {
         const p = getP(id);
-        html = !p ? notFound() : sub === 'stage' ? stageView(p, key) : sub === 'report' ? reportView(p, key) : projectView(p);
+        html = !p ? notFound()
+          : sub === 'stage' ? stageView(p, key)
+          : sub === 'report' ? reportView(p, key)
+          : sub === 'order' ? (extra === 'print' ? orderPrintView(p, key) : orderView(p, key))
+          : projectView(p);
       } else html = notFound();
-      document.body.classList.toggle('report-mode', view === 'project' && sub === 'report');
+      document.body.classList.toggle('report-mode', view === 'project' && (sub === 'report' || extra === 'print'));
 
       $('app').innerHTML = html;
       loadPhotos();
