@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>HCM Projects</title>
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -162,6 +162,21 @@
     input:focus, select:focus, textarea:focus { border-color: var(--white); }
     input::placeholder, textarea::placeholder { color: var(--white-faint); }
     textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
+    /* Same look as the text fields everywhere (iOS otherwise draws its own grey dropdown) */
+    select {
+      -webkit-appearance: none;
+      appearance: none;
+      padding-right: 42px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23ffffff' stroke-opacity='.6' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      background-size: 12px 8px;
+      text-overflow: ellipsis;
+      cursor: pointer;
+    }
+    select::-ms-expand { display: none; }
+    /* No double-tap zoom; taps respond immediately */
+    html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
     input[type="date"] { -webkit-appearance: none; appearance: none; display: block; min-width: 0; }
     input[type="checkbox"] { width: 22px; height: 22px; min-height: 0; accent-color: var(--c-green); flex-shrink: 0; cursor: pointer; }
     label.lbl { display: block; font-size: 13px; font-weight: 500; color: var(--white-dim); margin: 0 0 6px 4px; }
@@ -338,7 +353,7 @@
       .card { padding: 18px; border-radius: 22px; }
       .fgrid { grid-template-columns: 1fr; }
       .inline-form { grid-template-columns: 1fr 1fr; }
-      .inline-form > :first-child { grid-column: 1 / -1; }
+      .inline-form > :first-child, .inline-form .m-wide { grid-column: 1 / -1; }
       .cal-day { min-height: 58px; padding: 4px; }
       .cal-chip { font-size: 0; padding: 0; height: 6px; border-radius: 3px; }
       .cal-more { font-size: 10px; padding: 0; }
@@ -1623,7 +1638,7 @@
             </select>
             <input name="value" placeholder="Value" required />
             <input name="unit" placeholder="Unit" value="${READINGS['Suction pressure']}" />
-            <select name="by"><option value="">Recorded by…</option>${activeCrew().map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
+            <select name="by" class="m-wide"><option value="">Recorded by…</option>${activeCrew().map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
             <input name="note" placeholder="Note (optional)" style="grid-column: span 2" />
             <button class="btn btn-ghost fwide">Add reading</button>
           </form>
@@ -3076,6 +3091,10 @@
     }
 
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('modal').hidden) closeModal(); });
+
+    /* iOS ignores user-scalable=no, so block pinch-zoom directly */
+    ['gesturestart', 'gesturechange'].forEach(type => document.addEventListener(type, e => e.preventDefault(), { passive: false }));
+    document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
     /* ══════════ Router ══════════ */
 
