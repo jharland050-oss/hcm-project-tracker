@@ -496,6 +496,7 @@
     const CREW_ROLES = ['Technician', 'Plumber', 'Apprentice', 'Supervisor', 'Office', 'Subcontractor'];
     const DEFECT_STATUS = ['Open', 'In progress', 'Fixed'];
     const VARIATION_STATUS = ['Pending', 'Approved', 'Rejected', 'Completed'];
+    const APP_VERSION = 16; // keep in step with CACHE in sw.js
     const DOC_CATS = ['Plans', 'Permit / approval', 'Compliance certificate', 'Quote', 'Purchase order', 'Invoice', 'Warranty / manual', 'Other'];
     const EQUIP_TYPES = ['Ducted unit', 'Split system (indoor)', 'Split system (outdoor)', 'Multi-head system', 'Fan coil unit', 'Gas heater', 'Evaporative cooler', 'Hot water unit', 'Pump', 'Exhaust fan', 'Other'];
 
@@ -1650,9 +1651,14 @@
         </section>
 
         <h2 class="h-section">Documents
-          <label class="btn btn-ghost btn-sm">${ICON.plus} Upload
-            <input type="file" multiple hidden onchange="addDocs('${p.id}', this.files)" />
-          </label>
+          <span class="btn-row">
+            <label class="btn btn-ghost btn-sm" title="Upload a floor plan (photo or PDF) and draw the duct layout on it">${ICON.plus} Duct layout
+              <input type="file" accept="image/*,application/pdf,.pdf" hidden onchange="addPlan('${p.id}', this.files[0])" />
+            </label>
+            <label class="btn btn-ghost btn-sm">${ICON.plus} Upload
+              <input type="file" multiple hidden onchange="addDocs('${p.id}', this.files)" />
+            </label>
+          </span>
         </h2>
         <section class="card">
           ${docs.length || p.plans.length ? `<div class="rows">${p.plans.map(pl => `<div class="brow" style="align-items:center">
@@ -2164,7 +2170,7 @@
 
     function settingsView() {
       return `
-        <div class="page-head"><h1 class="page-title">Settings</h1></div>
+        <div class="page-head"><h1 class="page-title">Settings</h1><span class="faint">App version ${APP_VERSION}</span></div>
         ${companyCard()}
         ${materialRulesCard()}
         <section class="card">
@@ -5383,7 +5389,18 @@
       }
       if (CLOUD) await initCloud();
       render();
-      if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js');
+      if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+        // When a new version is published, switch to it straight away instead of on the next open
+        const hadWorker = !!navigator.serviceWorker.controller;
+        let reloaded = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (hadWorker && !reloaded) { reloaded = true; location.reload(); }
+        });
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') navigator.serviceWorker.getRegistration().then(reg => reg?.update()).catch(() => {});
+        });
+      }
     })();
   </script>
 </body>

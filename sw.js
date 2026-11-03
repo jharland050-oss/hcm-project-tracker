@@ -1,4 +1,4 @@
-const CACHE = 'hcm-proj-v15';
+const CACHE = 'hcm-proj-v16';
 const SHELL = [
   './',
   './index.html',
@@ -11,7 +11,7 @@ const SHELL = [
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())
+    caches.open(CACHE).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting())
   );
 });
 
@@ -33,7 +33,7 @@ self.addEventListener('fetch', e => {
     e.request.url.includes('index.html')
   ) {
     e.respondWith(
-      fetch(e.request).then(res => {
+      fetch(e.request, { cache: 'no-cache' }).then(res => {
         const clone = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, clone));
         return res;
