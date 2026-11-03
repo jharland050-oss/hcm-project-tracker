@@ -3827,6 +3827,88 @@
       save(); render();
     }
 
+    /* ── Import scope items from a spreadsheet (CSV) ──
+       Needs a stage and item column; hours, trade/by, order, detail, location, qty and unit are optional. */
+    function parseCSV(text) {
+      const rows = [[]];
+      let cell = '', quoted = false;
+      text = text.replace(/^﻿/, '');
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (quoted) {
+          if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+          else if (c === '"') quoted = false;
+          else cell += c;
+        } else if (c === '"') quoted = true;
+        else if (c === ',') { rows[rows.length - 1].push(cell); cell = ''; }
+        else if (c === '\n' || c === '\r') {
+          if (c === '\r' && text[i + 1] === '\n') i++;
+          rows[rows.length - 1].push(cell); cell = ''; rows.push([]);
+        } else cell += c;
+      }
+      rows[rows.length - 1].push(cell);
+      return rows.filter(r => r.some(v => v.trim()));
+    }
+
+    function scopeItemsFromCSV(text) {
+      const rows = parseCSV(text);
+      if (rows.length < 2) throw new Error('The file has no rows.');
+      const head = rows[0].map(h => h.trim().toLowerCase().replace(/[^a-z]/g, ''));
+      const col = (...names) => head.findIndex(h => names.includes(h));
+      const c = {
+        stage: col('stage'), title: col('item', 'title', 'task', 'description', 'scope'),
+        hours: col('esthours', 'hours', 'hrs', 'estimatedhours'), by: col('trade', 'by', 'who'),
+        order: col('order', 'no', 'number', 'seq'), detail: col('detail', 'details', 'notes', 'note'),
+        location: col('location', 'area', 'room'), qty: col('qty', 'quantity'), unit: col('unit', 'units')
+      };
+      if (c.stage < 0 || c.title < 0) throw new Error('The file needs a "stage" column and an "item" column.');
+      const stageKey = v => {
+        const t = v.toLowerCase().replace(/[^a-z]/g, '');
+        return STAGES.find(s => s.key === t || s.label.toLowerCase().replace(/[^a-z]/g, '') === t)?.key;
+      };
+      // Our own trades stay with us; others are labelled, with the trade kept in the details
+      const byOf = v => {
+        const t = v.trim().toLowerCase();
+        if (!t || ['hvac', 'plumbing', 'plumber', 'office', 'heatcool', 'heatcool masters', 'hcm', 'us'].includes(t)) return [SCOPE_BY[0], ''];
+        const exact = SCOPE_BY.find(b => b.toLowerCase() === t);
+        if (exact) return [exact, ''];
+        if (/builder|carpent|structur/.test(t)) return ['Builder', ''];
+        if (/customer|client|owner/.test(t)) return ['Customer', ''];
+        return ['Other trade', v.trim()];
+      };
+      const get = (r, k) => c[k] >= 0 ? (r[c[k]] || '').trim() : '';
+      const skipped = [];
+      const items = rows.slice(1).map((r, n) => {
+        const stage = stageKey(get(r, 'stage'));
+        const title = get(r, 'title');
+        if (!stage || !title) { skipped.push(n + 2); return null; }
+        const [by, trade] = byOf(get(r, 'by'));
+        const detail = [trade, get(r, 'detail')].filter(Boolean).join(' — ');
+        return { order: parseFloat(get(r, 'order')), n, item: { id: uid(), stage, title, detail, location: get(r, 'location'),
+          qty: get(r, 'qty'), unit: get(r, 'unit'), hours: String(parseFloat(get(r, 'hours')) || ''), by } };
+      }).filter(Boolean);
+      const si = k => STAGES.findIndex(s => s.key === k);
+      items.sort((a, b) => si(a.item.stage) - si(b.item.stage) || (isNaN(a.order) || isNaN(b.order) ? 0 : a.order - b.order) || a.n - b.n);
+      return { items: items.map(x => x.item), skipped };
+    }
+
+    function importScopeCSV(pid, input) {
+      const file = input.files[0];
+      input.value = '';
+      if (!file) return;
+      file.text().then(text => {
+        const p = getP(pid);
+        let res;
+        try { res = scopeItemsFromCSV(text); } catch (e) { alert('Could not import that file. ' + e.message); return; }
+        if (!res.items.length) { alert('No scope items found in that file.'); return; }
+        if (p.scope.items.length && confirm(`This scope already has ${p.scope.items.length} item(s).\n\nOK = replace them with the ${res.items.length} imported items\nCancel = add the imported items after them`)) p.scope.items = res.items;
+        else p.scope.items.push(...res.items);
+        save();
+        if (!location.hash.endsWith('/scope/edit')) location.hash = `#/project/${pid}/scope/edit`; else render();
+        toast(`Imported ${res.items.length} scope items` + (res.skipped.length ? ` — skipped row${res.skipped.length > 1 ? 's' : ''} ${res.skipped.join(', ')} (no stage or item)` : ''));
+      });
+    }
+
     /* Our scope items for a stage become checklist items (skipping ones already there) */
     function scopeToChecklist(pid, key) {
       const p = getP(pid), st = p.stages[key];
@@ -3902,6 +3984,7 @@
           ${empty('No scope of works yet. Build one from the template for this trade, or start with a blank scope.')}
           <div class="btn-row" style="margin-top:12px">
             <button class="btn" onclick="buildScope(${P}, true)">Build from template</button>
+            <label class="btn btn-ghost">Import CSV<input type="file" accept=".csv,text/csv" hidden onchange="importScopeCSV(${P}, this)" /></label>
             <a class="btn btn-ghost" href="#/project/${p.id}/scope/edit">Start blank</a>
           </div>
         </section>`;
@@ -3998,6 +4081,7 @@
       return scopeHeader(p, `
             <span class="faint">Editing · saved as you type</span>
             <button class="btn btn-ghost btn-sm" onclick="buildScope(${P})">Build from template</button>
+            <label class="btn btn-ghost btn-sm">Import CSV<input type="file" accept=".csv,text/csv" hidden onchange="importScopeCSV(${P}, this)" /></label>
             <a class="btn btn-sm" href="#/project/${p.id}/scope">Done</a>`) + `
         <datalist id="unit-list">${UNITS.map(u => `<option value="${u}"></option>`).join('')}<option value="outlets"></option></datalist>
         <div class="stack">
