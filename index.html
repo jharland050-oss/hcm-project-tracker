@@ -1655,12 +1655,20 @@
           </label>
         </h2>
         <section class="card">
-          ${docs.length ? `<div class="rows">${docs.map(d => `<div class="brow" style="align-items:center">
+          ${docs.length || p.plans.length ? `<div class="rows">${p.plans.map(pl => `<div class="brow" style="align-items:center">
+            <span class="doc-icon">${ICON.file}</span>
+            <div class="brow-main">
+              <a class="brow-title" href="#/project/${p.id}/plan/${pl.id}">${esc(pl.name)}</a>
+              <div class="muted">Duct layout · ${pl.items.filter(i => i.type === 'supply').length} outlets · ${pl.runs.length} runs</div>
+            </div>
+            <a class="icon-btn" title="Print" href="#/project/${p.id}/plan/${pl.id}/print">${ICON.print}</a>
+          </div>`).join('')}${docs.map(d => `<div class="brow" style="align-items:center">
             <span class="doc-icon">${ICON.file}</span>
             <div class="brow-main">
               <a class="brow-title" href="#" onclick="event.preventDefault(); openDoc('${p.id}','${d.id}')">${esc(d.name)}</a>
               <div class="muted">${esc(d.category)} · ${fmtSize(d.size)} · ${fmtDate(isoOf(new Date(d.at)))}</div>
             </div>
+            ${isPlanDoc(d) ? `<button class="btn btn-ghost btn-sm" title="Mark up this plan in the duct layout designer" onclick="openDoc('${p.id}','${d.id}',true)">Duct design</button>` : ''}
             <button class="icon-btn" title="Edit" onclick="editDoc('${p.id}','${d.id}')">${ICON.edit}</button>
           </div>`).join('')}</div>` : empty('No documents. Upload plans, permits, compliance certificates and quotes.')}
         </section>
@@ -4925,7 +4933,10 @@
       if (added) toast(added === 1 ? 'Document added' : added + ' documents added');
     }
 
-    async function openDoc(pid, id) {
+    // A plan, drawing or photo uploaded as a document can be opened straight into the duct layout designer
+    const isPlanDoc = d => /\.(pdf|jpe?g|png|heic|webp)$/i.test(d.name) || /^image\/|pdf/.test(d.type || '');
+
+    async function openDoc(pid, id, asPlan) {
       const d = getP(pid).docs.find(x => x.id === id);
       let blob = await idb('files', 'readonly', s => s.get(id));
       if (!blob && CLOUD) {
@@ -4933,6 +4944,7 @@
         blob = await downloadFile('files', id);
       }
       if (!blob) { toast(CLOUD ? 'Could not download the file — check your connection' : 'File not found on this device'); return; }
+      if (asPlan) return addPlan(pid, new File([blob], d.name, { type: blob.type }));
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
