@@ -305,16 +305,40 @@
     .cal-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
     .cal-head .month { font-size: 20px; font-weight: 600; min-width: 170px; }
     .cal-head select { width: auto; margin-left: auto; }
-    .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
     .cal-dow { font-size: 12px; color: var(--white-faint); text-align: center; padding: 4px 0; }
-    .cal-day { min-height: 96px; background: var(--card-2); border-radius: 12px; padding: 6px; text-align: left; display: flex; flex-direction: column; gap: 3px; border: 1.5px solid transparent; min-width: 0; }
+    .cal-day { min-height: 96px; background: var(--card-2); border-radius: 12px; padding: 6px; text-align: left; display: flex; flex-direction: column; gap: 3px; border: 1.5px solid transparent; min-width: 0; overflow: hidden; }
     .cal-day:hover { border-color: rgba(255,255,255,0.25); }
     .cal-day.other { opacity: 0.35; }
     .cal-day.today .dnum { background: var(--white); color: #000; }
     .cal-day.sel { border-color: var(--white); }
     .dnum { font-size: 13px; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
-    .cal-chip { font-size: 11px; padding: 2px 6px; border-radius: 6px; color: #000; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cal-chip { display: block; max-width: 100%; box-sizing: border-box; flex-shrink: 0; font-size: 11px; padding: 2px 6px; border-radius: 6px; color: #000; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .cal-more { font-size: 11px; color: var(--white-dim); padding-left: 4px; }
+    .seg-sm button { padding: 6px 14px; font-size: 13px; }
+    .dp { background: var(--card-2); border-radius: 14px; padding: 10px; margin-bottom: 14px; max-width: 380px; }
+    .dp-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; margin-bottom: 6px; }
+    .dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .dp-dow { font-size: 11px; color: var(--white-faint); text-align: center; padding: 2px 0; }
+    .dp-day { position: relative; height: 38px; border-radius: 10px; font-size: 14px; color: var(--white); background: var(--field); border: 1.5px solid transparent; }
+    .dp-day.off { color: var(--white-faint); background: transparent; }
+    .dp-day.other { opacity: 0.35; }
+    .dp-day.today { border-color: rgba(255,255,255,0.5); }
+    .dp-day.on { background: var(--white); color: #000; font-weight: 600; }
+    .dp-day.busy::after, .dp-key { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--c-orange, #f07a1c); }
+    .dp-day.busy::after { position: absolute; top: 4px; right: 4px; }
+    .day-row { display: flex; align-items: center; gap: 6px; }
+    .day-row > .brow { flex: 1; min-width: 0; }
+    .day-add { display: flex; gap: 8px; margin-top: 12px; }
+    .day-add select { flex: 1; min-width: 0; }
+    .day-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px; }
+    .day-chips .chip { white-space: nowrap; flex-shrink: 0; }
+    .crew-day { border-top: 1px solid var(--line, rgba(255,255,255,0.08)); padding-top: 10px; margin-top: 10px; }
+    .crew-day-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+    .punch-add { flex-wrap: wrap; }
+    .punch-add input[name=text] { flex: 3 1 220px; }
+    .punch-add .punch-loc { flex: 1 1 110px; }
+    .punch-thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; cursor: pointer; flex-shrink: 0; }
     .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; font-size: 13px; color: var(--white-dim); }
     .legend span { display: inline-flex; align-items: center; gap: 6px; }
 
@@ -369,7 +393,7 @@
     .cal-mark { background: transparent !important; border: 1px solid; }
     .chips .tag { white-space: normal; }
     .cal-day.hol { background: #221c12; }
-    .cal-hol { font-size: 10px; line-height: 1.2; color: var(--c-amber); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cal-hol { display: block; max-width: 100%; font-size: 10px; line-height: 1.2; color: var(--c-amber); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* ── Sign-in & sync ── */
     .header-actions { display: flex; align-items: center; gap: 10px; }
@@ -489,6 +513,7 @@
       { key: 'roughin',  label: 'Rough-in', color: '#f6a332' },
       { key: 'fitoff',   label: 'Fit-off',  color: '#f07a1c' }
     ];
+    const stageLabel = k => STAGES.find(s => s.key === k)?.label || 'General';
     const STAGE_STATUS = ['Not started', 'In progress', 'Complete'];
     const TRADES = ['HVAC', 'Plumbing', 'HVAC + Plumbing'];
     const PROJECT_STATUS = ['Active', 'On hold', 'Complete'];
@@ -496,7 +521,7 @@
     const CREW_ROLES = ['Technician', 'Plumber', 'Apprentice', 'Supervisor', 'Office', 'Subcontractor'];
     const DEFECT_STATUS = ['Open', 'In progress', 'Fixed'];
     const VARIATION_STATUS = ['Pending', 'Approved', 'Rejected', 'Completed'];
-    const APP_VERSION = 16; // keep in step with CACHE in sw.js
+    const APP_VERSION = 17; // keep in step with CACHE in sw.js
     const DOC_CATS = ['Plans', 'Permit / approval', 'Compliance certificate', 'Quote', 'Purchase order', 'Invoice', 'Warranty / manual', 'Other'];
     const EQUIP_TYPES = ['Ducted unit', 'Split system (indoor)', 'Split system (outdoor)', 'Multi-head system', 'Fan coil unit', 'Gas heater', 'Evaporative cooler', 'Hot water unit', 'Pump', 'Exhaust fan', 'Other'];
 
@@ -718,6 +743,34 @@
       if (!end || end === start) return fmtDate(start);
       return fmtDate(start) + ' – ' + fmtDate(end);
     }
+
+    /* A stage is booked for a date range (start–end) or, when st.days has dates, only on those days.
+       start/end are kept as the first and last picked day so range-based views still work. */
+    const pickedDays = st => st.days?.length ? [...st.days].sort() : null;
+    function dayRuns(days) {
+      const runs = [];
+      days.forEach(d => {
+        const last = runs[runs.length - 1];
+        if (last && addDays(last[1], 1) === d) last[1] = d; else runs.push([d, d]);
+      });
+      return runs;
+    }
+    function stageDateText(st) {
+      const days = pickedDays(st);
+      if (!days) return dateRange(st.start, st.end);
+      return dayRuns(days).map(([a, b]) => dateRange(a, b)).join(', ') + ` (${days.length} day${days.length === 1 ? '' : 's'})`;
+    }
+    function setPickedDays(st, days) {
+      st.days = [...new Set(days)].sort();
+      st.start = st.days[0] || '';
+      st.end = st.days[st.days.length - 1] || '';
+    }
+    /* Working days of a range, used when a range is turned into picked days */
+    function rangeWorkDays(start, end) {
+      const out = [];
+      for (let d = start; start && d <= (end || start); d = addDays(d, 1)) if (isWorkDay(d)) out.push(d);
+      return out.length || !start ? out : [start];
+    }
     const money = n => '$' + Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const money0 = n => (n < 0 ? '−$' : '$') + Math.round(Math.abs(n)).toLocaleString('en-AU');
     const r2 = n => Math.round(n * 100) / 100;
@@ -819,6 +872,7 @@
     const syncMeta = () => ({ base: sync.base, uploads: sync.uploads, lastPull: sync.lastPull });
     const recKey = (kind, id) => kind + ':' + id;
     const isPlainObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+    const isStrList = v => Array.isArray(v) && v.every(x => typeof x === 'string');
     const isIdList = v => Array.isArray(v) && v.every(x => isPlainObj(x) && 'id' in x);
 
     /* JSON with sorted keys, so the same data always compares equal (Postgres reorders jsonb keys) */
@@ -863,6 +917,11 @@
         const B = byId(base), L = byId(local), R = byId(remote);
         const ids = [...remote.map(x => x.id), ...local.map(x => x.id).filter(id => !R.has(id))];
         return ids.map(id => merge3(B.get(id), L.get(id), R.get(id))).filter(v => v !== undefined);
+      }
+      /* Lists of plain values (picked days, crew ids): keep additions from both sides, drop what either side removed */
+      if (isStrList(local) && isStrList(remote)) {
+        const B = new Set(isStrList(base) ? base : []), L = new Set(local), R = new Set(remote);
+        return [...remote, ...local.filter(x => !R.has(x))].filter(x => !(B.has(x) && (!L.has(x) || !R.has(x))));
       }
       return local;
     }
@@ -1212,7 +1271,7 @@
       if (!s.settings.materialRules) s.settings.materialRules = DEFAULT_MATERIAL_RULES.map(r => ({ ...r }));
       s.settings.company = { name: 'Heatcool Masters', phone: '', email: '', website: '', abn: '', arctick: '', plumbingLicence: '', ...(s.settings.company || {}) };
       s.projects.forEach(p => {
-        ['materials', 'equipment', 'issues', 'docs', 'milestones', 'orders'].forEach(k => { p[k] = p[k] || []; });
+        ['materials', 'equipment', 'issues', 'docs', 'milestones', 'orders', 'punch'].forEach(k => { p[k] = p[k] || []; });
         p.scope = { overview: '', items: [], inclusions: '', exclusions: '', assumptions: '', status: 'Draft', version: 0, ...(p.scope || {}) };
         p.plans = p.plans || [];
         p.handover = { notes: '', ...(p.handover || {}) };
@@ -1259,9 +1318,18 @@
       const out = [];
       state.projects.forEach(p => STAGES.forEach(s => {
         const st = p.stages[s.key];
-        if (st.start) out.push({ p, s, st, start: st.start, end: st.end && st.end >= st.start ? st.end : st.start, crew: st.crew });
+        if (st.start) out.push({ p, s, st, start: st.start, end: st.end && st.end >= st.start ? st.end : st.start, days: pickedDays(st), crew: st.crew });
       }));
       return out.sort((a, b) => a.start.localeCompare(b.start));
+    }
+
+    const bookedOn = (b, d) => b.days ? b.days.includes(d) : b.start <= d && b.end >= d;
+    const bookedBetween = (b, from, to) => b.days ? b.days.some(d => d >= from && d <= to) : b.start <= to && b.end >= from;
+    function bookingsOverlap(a, b) {
+      if (!(a.start <= b.end && b.start <= a.end)) return false;
+      if (!a.days && !b.days) return true;
+      const [x, y] = a.days ? [a, b] : [b, a];
+      return x.days.some(d => bookedOn(y, d));
     }
 
     /* Same crew member booked on two open stages with overlapping dates */
@@ -1271,7 +1339,7 @@
       for (let i = 0; i < bs.length; i++) {
         for (let j = i + 1; j < bs.length; j++) {
           const a = bs[i], b = bs[j];
-          if (a.start <= b.end && b.start <= a.end) {
+          if (bookingsOverlap(a, b)) {
             a.crew.filter(c => b.crew.includes(c)).forEach(cid => out.push({ cid, a, b }));
           }
         }
@@ -1360,7 +1428,7 @@
       if (cs) {
         const st = p.stages[cs.key];
         const pr = checkProgress(st);
-        meta = `<span>${cs.label}: ${pr.done}/${pr.total} checked</span><span>${st.start ? dateRange(st.start, st.end) : 'Not scheduled'}</span>`;
+        meta = `<span>${cs.label}: ${pr.done}/${pr.total} checked</span><span>${st.start ? stageDateText(st) : 'Not scheduled'}</span>`;
       } else {
         meta = '<span>All stages complete</span>';
       }
@@ -1378,7 +1446,7 @@
         <span class="dot" style="background:${b.s.color}"></span>
         <div class="brow-main">
           <div class="brow-title">${esc(b.p.name)} · ${b.s.label}</div>
-          <div class="muted">${dateRange(b.start, b.end)} · ${esc(crewNames(b.crew)) || 'No crew assigned'}</div>
+          <div class="muted">${stageDateText(b.st)} · ${esc(crewNames(b.crew)) || 'No crew assigned'}</div>
         </div>
         ${b.st.status === 'Complete' ? '<span class="tag tag-good">Done</span>' : ''}
       </a>`;
@@ -1402,7 +1470,7 @@
       const active = state.projects.filter(p => p.status === 'Active');
       const onHold = state.projects.filter(p => p.status === 'On hold');
       const t = today(), wk = addDays(t, 6);
-      const upcoming = bookings().filter(b => b.st.status !== 'Complete' && b.p.status !== 'Complete' && b.start <= wk && b.end >= t);
+      const upcoming = bookings().filter(b => b.st.status !== 'Complete' && b.p.status !== 'Complete' && bookedBetween(b, t, wk));
       const alerts = attentionItems();
       const stat = (label, n, color) => `<div class="stat"><div class="stat-num" style="color:${color}">${n}</div><div class="stat-label">${label}</div></div>`;
 
@@ -1489,7 +1557,6 @@
       const matCost = jc.materials;
       const issues = p.issues;
       const docs = p.docs;
-      const stageLabel = k => STAGES.find(s => s.key === k)?.label || 'General';
 
       /* Labour totals by stage and crew member */
       const hoursBy = {};
@@ -1581,13 +1648,18 @@
               <h3>${s.label} <span class="tag ${st.status === 'Complete' ? 'tag-good' : st.status === 'In progress' ? 'tag-warn' : ''}">${st.status}</span></h3>
               <div class="progress" style="margin-bottom:10px"><i style="width:${pr.pct}%;background:${s.color}"></i></div>
               <div class="kv"><span>Checklist</span><span>${pr.done}/${pr.total}</span></div>
-              <div class="kv"><span>Dates</span><span>${dateRange(st.start, st.end)}</span></div>
+              <div class="kv"><span>Dates</span><span>${stageDateText(st)}</span></div>
               <div class="kv"><span>Crew</span><span>${esc(crewNames(st.crew)) || '—'}</span></div>
               <div class="kv"><span>Photos / readings</span><span>${st.photos.length} / ${st.readings.length}</span></div>
               <div class="kv"><span>Sign-off</span><span>${st.signoff ? esc(st.signoff.name) + ', ' + fmtDate(st.signoff.date) : '—'}</span></div>
             </a>`;
           }).join('')}
         </div>
+
+        <h2 class="h-section">Punch list <span class="muted" style="font-size:15px">${p.punch.filter(x => !x.done).length} open</span>
+          <a class="btn btn-ghost btn-sm" href="#/project/${p.id}/punch">${ICON.print} Print</a>
+        </h2>
+        <section class="card">${punchCardHTML(p, null)}</section>
 
         <h2 class="h-section">Defects & variations
           <span class="btn-row">
@@ -1698,7 +1770,7 @@
 
     /* ══════════ Stage detail ══════════ */
 
-    function stageView(p, key) {
+    function stageView(p, key, extra) {
       const s = STAGES.find(x => x.key === key);
       if (!s) return notFound();
       const st = p.stages[key];
@@ -1707,6 +1779,7 @@
       const crew = state.crew.filter(c => c.active !== false || st.crew.includes(c.id));
       const totalHours = st.time.reduce((n, t) => n + (parseFloat(t.hours) || 0), 0);
       const P = `'${p.id}','${key}'`;
+      const daysMode = st.dayMode === 'days' || !!pickedDays(st);
 
       return `
         <a class="back" href="#/project/${p.id}">${ICON.back} ${esc(p.name)}</a>
@@ -1727,19 +1800,24 @@
             <div class="seg" style="margin-bottom:16px">
               ${STAGE_STATUS.map(v => `<button class="${st.status === v ? 'on' : ''}" onclick="setStageStatus(${P},'${v}')">${v}</button>`).join('')}
             </div>
+            <div class="seg seg-sm" style="margin-bottom:12px">
+              <button class="${daysMode ? '' : 'on'}" onclick="setStageMode(${P},'range')">Date range</button>
+              <button class="${daysMode ? 'on' : ''}" onclick="setStageMode(${P},'days')">Pick days</button>
+            </div>
+            ${daysMode ? dayPickerHTML(p, key) : ''}
             <div class="fgrid">
-              <div><label class="lbl">Start date</label><input type="date" value="${st.start}" onchange="setStageField(${P},'start',this.value,true)" /></div>
-              <div><label class="lbl">End date</label><input type="date" value="${st.end}" min="${st.start}" onchange="setStageField(${P},'end',this.value,true)" /></div>
+              ${daysMode ? '' : `<div><label class="lbl">Start date</label><input type="date" value="${st.start}" onchange="setStageField(${P},'start',this.value,true)" /></div>
+              <div><label class="lbl">End date</label><input type="date" value="${st.end}" min="${st.start}" onchange="setStageField(${P},'end',this.value,true)" /></div>`}
               <div><label class="lbl">Estimated hours</label><input type="number" step="0.25" min="0" value="${esc(st.estHours || '')}" placeholder="${defaultStageHours(p, key)}" onchange="setStageField(${P},'estHours',this.value,true)" /></div>
               <div><label class="lbl">Hours logged</label><div style="padding:12px 4px" class="${parseFloat(st.estHours) && totalHours > parseFloat(st.estHours) ? 'over' : ''}">${fmtH(totalHours)}${parseFloat(st.estHours) ? ' of ' + fmtH(parseFloat(st.estHours)) : ''}</div></div>
             </div>
-            ${st.start && holidaysBetween(st.start, st.end || st.start).length ? `<div class="faint" style="margin-top:12px">Non-working days in this stage: ${holidaysBetween(st.start, st.end || st.start).map(([d, n]) => `${esc(n)} (${fmtDate(d)})`).join(', ')}</div>` : ''}
+            ${!daysMode && st.start && holidaysBetween(st.start, st.end || st.start).length ? `<div class="faint" style="margin-top:12px">Non-working days in this stage: ${holidaysBetween(st.start, st.end || st.start).map(([d, n]) => `${esc(n)} (${fmtDate(d)})`).join(', ')}</div>` : ''}
             <label class="lbl" style="margin-top:16px">Assigned crew</label>
             ${crew.length ? `<div class="chips">${crew.map(c => `<button class="chip ${st.crew.includes(c.id) ? 'on' : ''}" onclick="toggleCrew(${P},'${c.id}')">${esc(c.name)}</button>`).join('')}</div>`
               : `<div class="empty">No crew yet. <a href="#/crew" style="color:var(--c-cyan)">Add crew members</a> to assign them.</div>`}
             ${myClashes.length ? `<div class="warn-box">${myClashes.map(c => {
               const other = c.a.p === p && c.a.s.key === key ? c.b : c.a;
-              return `<div><b>${esc(getCrew(c.cid)?.name)}</b> is also booked on ${esc(other.p.name)} (${other.s.label}), ${dateRange(other.start, other.end)}</div>`;
+              return `<div><b>${esc(getCrew(c.cid)?.name)}</b> is also booked on ${esc(other.p.name)} (${other.s.label}), ${stageDateText(other.st)}</div>`;
             }).join('')}</div>` : ''}
           </section>
 
@@ -1750,17 +1828,27 @@
         </div>
 
         <section class="card" style="margin-top:12px">
+          <h2>Daily crew plan</h2>
+          ${dailyPlanHTML(p, key, extra)}
+        </section>
+
+        <section class="card">
           <h2>Checklist <span class="muted">${pr.done} of ${pr.total}</span></h2>
           <div class="progress" style="margin-bottom:8px"><i style="width:${pr.pct}%;background:${s.color}"></i></div>
           <div class="rows">${st.checklist.map(i => `<div class="check ${i.done ? 'done' : ''}">
             <input type="checkbox" ${i.done ? 'checked' : ''} onchange="toggleCheck(${P},'${i.id}')" />
-            <div class="check-text">${esc(i.text)}${i.done && i.doneAt ? `<div class="faint">Ticked ${fmtTime(i.doneAt)}</div>` : ''}</div>
+            <div class="check-text">${esc(i.text)}${i.done && i.doneAt ? `<div class="faint">Ticked ${fmtTime(i.doneAt)}</div>` : ''}${itemAssignees(st, i.id) ? `<div class="faint">${esc(itemAssignees(st, i.id))}</div>` : ''}</div>
             <button class="icon-btn" title="Remove item" onclick="delItem(${P},'checklist','${i.id}')">${ICON.x}</button>
           </div>`).join('')}</div>
           <form class="add-row" onsubmit="event.preventDefault(); addCheck(${P}, this.item)">
             <input name="item" placeholder="Add a checklist item" />
             <button class="btn btn-ghost">Add</button>
           </form>
+        </section>
+
+        <section class="card">
+          <h2>Punch list <span class="muted">${p.punch.filter(x => !x.done && x.stage === key).length} open</span></h2>
+          ${punchCardHTML(p, key)}
         </section>
 
         <section class="card">
@@ -1841,6 +1929,275 @@
 
     function stageOf(pid, key) { return getP(pid).stages[key]; }
 
+    /* ── Daily crew plan: which checklist items each crew member does on each site day ──
+       st.dayTasks = [{ id, date, crewId, itemId }] */
+
+    const siteDays = st => pickedDays(st) || rangeWorkDays(st.start, st.end);
+    const tasksOn = (st, d, cid) => (st.dayTasks || []).filter(t => t.date === d && (!cid || t.crewId === cid));
+
+    function planDay(st, extra) {
+      const days = siteDays(st), t = today();
+      if (days.includes(ui.taskDay)) return ui.taskDay;
+      if (days.includes(extra)) return extra;
+      return days.find(d => d >= t) || days[days.length - 1] || '';
+    }
+
+    function dailyPlanHTML(p, key, extra) {
+      const st = p.stages[key];
+      const P = `'${p.id}','${key}'`;
+      const days = siteDays(st);
+      if (!days.length) return empty('Set the dates or pick the days for this stage, then plan what each crew member does each day.');
+      if (!st.crew.length) return empty('Assign crew to this stage above, then give each person their checklist items for the day.');
+      const d = planDay(st, extra);
+      const prev = days.filter(x => x < d).pop();
+      const items = new Map(st.checklist.map(i => [i.id, i]));
+      const punch = p.punch.filter(x => !x.done && x.stage === key && x.crewId);
+      return `
+        <div class="day-chips">${days.map(x => {
+          const n = tasksOn(st, x).length;
+          return `<button class="chip ${x === d ? 'on' : ''}" onclick="ui.taskDay='${x}'; render()">${new Date(x + 'T00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}${n ? ` · ${n}` : ''}</button>`;
+        }).join('')}</div>
+        ${st.crew.map(cid => {
+          const mine = tasksOn(st, d, cid).filter(t => items.has(t.itemId));
+          const unfinished = prev ? tasksOn(st, prev, cid).filter(t => items.has(t.itemId) && !items.get(t.itemId).done && !mine.some(m => m.itemId === t.itemId)) : [];
+          const myPunch = punch.filter(x => x.crewId === cid);
+          return `<div class="crew-day">
+            <div class="crew-day-head">
+              <b>${esc(getCrew(cid)?.name || 'Crew member')}</b>
+              <span class="btn-row">
+                ${unfinished.length ? `<button class="btn btn-ghost btn-sm" onclick="carryOver(${P},'${cid}','${prev}','${d}')">Carry over ${unfinished.length} unfinished</button>` : ''}
+                <button class="btn btn-ghost btn-sm" onclick="assignTasks(${P},'${cid}','${d}')">${ICON.plus} Assign items</button>
+              </span>
+            </div>
+            ${mine.length || myPunch.length ? `<div class="rows">${mine.map(t => { const i = items.get(t.itemId); return `<div class="check ${i.done ? 'done' : ''}">
+              <input type="checkbox" ${i.done ? 'checked' : ''} onchange="toggleCheck(${P},'${i.id}')" />
+              <div class="check-text">${esc(i.text)}</div>
+              <button class="icon-btn" title="Unassign" onclick="unassignTask(${P},'${t.id}')">${ICON.x}</button>
+            </div>`; }).join('')}${myPunch.map(x => `<div class="check">
+              <input type="checkbox" onchange="togglePunch('${p.id}','${x.id}')" />
+              <div class="check-text">${esc(x.text)}<div class="faint">Punch list${x.location ? ' · ' + esc(x.location) : ''}</div></div>
+            </div>`).join('')}</div>` : `<div class="faint" style="padding:6px 0">Nothing assigned for this day.</div>`}
+          </div>`;
+        }).join('')}`;
+    }
+
+    function assignTasks(pid, key, cid, d) {
+      const st = stageOf(pid, key);
+      const mine = new Set(tasksOn(st, d, cid).map(t => t.itemId));
+      const others = new Map(tasksOn(st, d).filter(t => t.crewId !== cid).map(t => [t.itemId, getCrew(t.crewId)?.name]));
+      const open = st.checklist.filter(i => !i.done || mine.has(i.id));
+      showModal(`
+        <h3>${esc(getCrew(cid)?.name || 'Crew member')} · ${fmtDate(d, true)}</h3>
+        ${open.length ? `<form id="assign-form" class="rows" style="max-height:55vh;overflow:auto">${open.map(i => `<label class="check">
+          <input type="checkbox" name="i" value="${i.id}" ${mine.has(i.id) ? 'checked' : ''} />
+          <div class="check-text">${esc(i.text)}${others.has(i.id) ? `<div class="faint">Also given to ${esc(others.get(i.id))}</div>` : ''}</div>
+        </label>`).join('')}</form>` : empty('Every checklist item is already ticked.')}
+        <div class="modal-actions">
+          <button class="btn" onclick="saveAssign('${pid}','${key}','${cid}','${d}')">Save</button>
+          <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        </div>`);
+    }
+
+    function saveAssign(pid, key, cid, d) {
+      const st = stageOf(pid, key);
+      const picked = new Set([...document.querySelectorAll('#assign-form input:checked')].map(x => x.value));
+      st.dayTasks = (st.dayTasks || []).filter(t => !(t.date === d && t.crewId === cid && !picked.has(t.itemId)));
+      picked.forEach(itemId => {
+        if (!st.dayTasks.some(t => t.date === d && t.crewId === cid && t.itemId === itemId)) st.dayTasks.push({ id: uid(), date: d, crewId: cid, itemId });
+      });
+      save(); closeModal(); render();
+    }
+
+    function carryOver(pid, key, cid, from, to) {
+      const st = stageOf(pid, key);
+      const done = new Set(st.checklist.filter(i => i.done).map(i => i.id));
+      const have = new Set(tasksOn(st, to, cid).map(t => t.itemId));
+      tasksOn(st, from, cid).filter(t => !done.has(t.itemId) && !have.has(t.itemId))
+        .forEach(t => st.dayTasks.push({ id: uid(), date: to, crewId: cid, itemId: t.itemId }));
+      save(); render();
+    }
+
+    function unassignTask(pid, key, tid) {
+      const st = stageOf(pid, key);
+      st.dayTasks = st.dayTasks.filter(t => t.id !== tid);
+      save(); render();
+    }
+
+    /* Who has a checklist item, shown under it in the stage checklist */
+    function itemAssignees(st, itemId) {
+      const ts = (st.dayTasks || []).filter(t => t.itemId === itemId).sort((a, b) => a.date.localeCompare(b.date));
+      return ts.map(t => `${getCrew(t.crewId)?.name || '?'} ${fmtDate(t.date)}`).join(', ');
+    }
+
+    /* ── Punch list: quick on-site notes and snags, per project ──
+       p.punch = [{ id, text, location, stage, crewId, photo, done, at, doneAt }] */
+
+    function punchCardHTML(p, stageKey) {
+      const list = p.punch.filter(x => !stageKey || x.stage === stageKey);
+      const open = list.filter(x => !x.done), done = list.filter(x => x.done);
+      const shown = ui.punchDone ? [...open, ...done] : open;
+      const S = stageKey ? `'${stageKey}'` : `''`;
+      return `
+        <form class="add-row punch-add" onsubmit="event.preventDefault(); addPunch('${p.id}', ${S}, this)">
+          <input name="text" placeholder="Add a punch item, e.g. Bed 2 grille not square" autocomplete="off" />
+          <input name="location" placeholder="Where" class="punch-loc" autocomplete="off" />
+          <label class="icon-btn" title="Add with a photo">${ICON.camera}<input type="file" accept="image/*" hidden onchange="addPunch('${p.id}', ${S}, this.form, this.files[0])" /></label>
+          <button class="btn btn-ghost">Add</button>
+        </form>
+        <div class="rows">${shown.map(x => `<div class="check ${x.done ? 'done' : ''}">
+          <input type="checkbox" ${x.done ? 'checked' : ''} onchange="togglePunch('${p.id}','${x.id}')" />
+          <div class="check-text" onclick="editPunch('${p.id}','${x.id}')" style="cursor:pointer">${esc(x.text)}
+            <div class="faint">${[x.location && esc(x.location), !stageKey && x.stage && stageLabel(x.stage), x.crewId && esc(getCrew(x.crewId)?.name || ''), fmtTime(x.at)].filter(Boolean).join(' · ')}</div>
+          </div>
+          ${x.photo ? `<img class="punch-thumb" data-photo="${x.photo}" alt="" onclick="editPunch('${p.id}','${x.id}')" />` : ''}
+        </div>`).join('') || empty(open.length || done.length ? 'All punch items done.' : 'Nothing on the punch list. Jot down anything to fix or follow up while on site.')}</div>
+        ${done.length ? `<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="ui.punchDone=!ui.punchDone; render()">${ui.punchDone ? 'Hide' : 'Show'} ${done.length} done</button>` : ''}`;
+    }
+
+    async function addPunch(pid, stage, form, file) {
+      const p = getP(pid);
+      const text = form.text.value.trim();
+      if (!text && !file) { form.text.focus(); return; }
+      const item = { id: uid(), text: text || 'Photo note', location: form.location.value.trim(), stage: stage || currentStage(p)?.key || '', crewId: '', photo: '', done: false, at: Date.now(), doneAt: null };
+      if (file) {
+        try {
+          const data = await compressImage(file);
+          item.photo = uid();
+          await idb('photos', 'readwrite', s => s.put(data, item.photo));
+          photoCache.set(item.photo, data);
+          queueUpload('photos', item.photo);
+        } catch (err) { console.error(err); toast('The photo could not be saved'); item.photo = ''; }
+      }
+      p.punch.push(item);
+      save(); render();
+      const input = document.querySelector('.punch-add input[name=text]');
+      if (input && matchMedia('(pointer: fine)').matches) input.focus();
+    }
+
+    function togglePunch(pid, id) {
+      const x = getP(pid).punch.find(i => i.id === id);
+      x.done = !x.done;
+      x.doneAt = x.done ? Date.now() : null;
+      save(); render();
+    }
+
+    function editPunch(pid, id) {
+      const p = getP(pid), x = p.punch.find(i => i.id === id);
+      openForm({
+        title: 'Punch item',
+        fields: [
+          { name: 'text', label: 'Item', value: x.text, required: true, wide: true },
+          { name: 'location', label: 'Location', value: x.location },
+          { name: 'stage', label: 'Stage', value: x.stage, options: [['', 'General'], ...STAGES.map(s => [s.key, s.label])] },
+          { name: 'crewId', label: 'Assigned to', value: x.crewId, options: [['', 'Nobody yet'], ...state.crew.filter(c => c.active !== false || c.id === x.crewId).map(c => [c.id, c.name])] },
+          { name: 'done', label: 'Status', value: x.done ? '1' : '', options: [['', 'Open'], ['1', 'Done']] }
+        ],
+        onSave: v => {
+          const wasDone = x.done;
+          Object.assign(x, { text: v.text.trim(), location: v.location.trim(), stage: v.stage, crewId: v.crewId, done: v.done === '1' });
+          if (x.done !== wasDone) x.doneAt = x.done ? Date.now() : null;
+        },
+        onDelete: () => {
+          if (!confirm('Delete this punch item?')) return false;
+          p.punch = p.punch.filter(i => i.id !== id);
+        }
+      });
+      if (x.photo) $('modal-form').insertAdjacentHTML('afterbegin', `<div class="lightbox" style="margin-bottom:12px"><img data-photo="${x.photo}" alt="" /></div>`), loadPhotos();
+    }
+
+    function punchPrintView(p) {
+      const open = p.punch.filter(x => !x.done);
+      return `
+        <div class="report-bar no-print">
+          <a class="back" href="#/project/${p.id}">${ICON.back} Back</a>
+          <button class="btn" onclick="window.print()">${ICON.print} Print / save PDF</button>
+        </div>
+        <article class="report">
+          <div class="r-head"><div><h1>Punch list</h1><div class="r-sub">${esc(p.jobNo)} · ${esc(p.name)} · ${esc(p.address)}</div></div></div>
+          ${open.length ? `<table class="r-tbl"><thead><tr><th style="width:28px"></th><th>Item</th><th>Location</th><th>Stage</th><th>Assigned</th></tr></thead>
+            <tbody>${open.map(x => `<tr><td>☐</td><td>${esc(x.text)}</td><td>${esc(x.location)}</td><td>${x.stage ? stageLabel(x.stage) : ''}</td><td>${esc(getCrew(x.crewId)?.name || '')}</td></tr>`).join('')}</tbody></table>`
+            : '<p>No open punch items.</p>'}
+          <div class="r-foot">Heatcool Masters · ${esc(p.jobNo)} · Punch list · ${open.length} open · Generated ${new Date().toLocaleString('en-AU')}</div>
+        </article>`;
+    }
+
+    /* ── Picking individual days for a stage ── */
+
+    function setStageMode(pid, key, mode) {
+      const st = stageOf(pid, key);
+      if (mode === 'days') {
+        st.dayMode = 'days';
+        setPickedDays(st, pickedDays(st) || rangeWorkDays(st.start, st.end));
+      } else {
+        delete st.dayMode;
+        st.days = [];
+      }
+      save(); render();
+    }
+
+    function toggleStageDay(pid, key, d) {
+      const st = stageOf(pid, key);
+      const days = pickedDays(st) || [];
+      setPickedDays(st, days.includes(d) ? days.filter(x => x !== d) : [...days, d]);
+      st.dayMode = 'days';
+      save(); render();
+    }
+
+    /* From the Schedule calendar: a range stage becomes its working days, then the day is added or taken off */
+    function addStageDay(pid, key, d) {
+      const st = stageOf(pid, key);
+      setPickedDays(st, [...(pickedDays(st) || rangeWorkDays(st.start, st.end)), d]);
+      st.dayMode = 'days';
+      save(); render();
+      toast(`${getP(pid).name} booked on ${fmtDate(d)}`);
+    }
+
+    function removeStageDay(pid, key, d) {
+      const st = stageOf(pid, key);
+      setPickedDays(st, (pickedDays(st) || rangeWorkDays(st.start, st.end)).filter(x => x !== d));
+      st.dayMode = 'days';
+      save(); render();
+      toast(`${getP(pid).name} taken off ${fmtDate(d)}`);
+    }
+
+    function pickMonth(n) {
+      const [y, m] = ui.pickMonth.split('-').map(Number);
+      ui.pickMonth = isoOf(new Date(y, m - 1 + n, 1)).slice(0, 7);
+      render();
+    }
+
+    function dayPickerHTML(p, key) {
+      const st = p.stages[key];
+      const days = pickedDays(st) || [];
+      if (!ui.pickMonth) ui.pickMonth = (days[0] || today()).slice(0, 7);
+      const [y, m] = ui.pickMonth.split('-').map(Number);
+      const first = new Date(y, m - 1, 1);
+      const offset = (first.getDay() + 6) % 7;
+      const gridStart = isoOf(new Date(y, m - 1, 1 - offset));
+      const cells = Math.ceil((offset + new Date(y, m, 0).getDate()) / 7) * 7;
+      // Days when this stage's crew are already booked on another job
+      const others = bookings().filter(b => !(b.p === p && b.s.key === key) && b.st.status !== 'Complete' && b.p.status !== 'Complete' && b.crew.some(c => st.crew.includes(c)));
+      const t = today();
+      let grid = '';
+      for (let i = 0; i < cells; i++) {
+        const d = addDays(gridStart, i);
+        const busy = others.filter(b => bookedOn(b, d));
+        const hol = holidayOn(d);
+        const cls = ['dp-day', d.slice(0, 7) !== ui.pickMonth && 'other', days.includes(d) && 'on', !isWorkDay(d) && 'off', d === t && 'today', busy.length && 'busy'].filter(Boolean).join(' ');
+        const title = [hol, ...busy.map(b => `${crewNames(b.crew.filter(c => st.crew.includes(c)))} on ${b.p.name}`)].filter(Boolean).join(' · ');
+        grid += `<button class="${cls}" ${title ? `title="${esc(title)}"` : ''} onclick="toggleStageDay('${p.id}','${key}','${d}')">${Number(d.slice(8))}</button>`;
+      }
+      return `<div class="dp">
+        <div class="dp-head">
+          <button class="icon-btn" onclick="pickMonth(-1)" title="Previous month">${ICON.left}</button>
+          <span>${first.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })}</span>
+          <button class="icon-btn" onclick="pickMonth(1)" title="Next month">${ICON.right}</button>
+        </div>
+        <div class="dp-grid">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(x => `<span class="dp-dow">${x}</span>`).join('')}${grid}</div>
+        <div class="faint" style="margin-top:8px">${days.length ? stageDateText(st) : 'Tap the days this stage is on site.'}${others.length ? ' · <span class="dp-key"></span> crew booked elsewhere' : ''}</div>
+      </div>`;
+    }
+
     function setStageStatus(pid, key, val) {
       const p = getP(pid);
       p.stages[key].status = val;
@@ -1866,6 +2223,7 @@
           .map(s => p.stages[s.key]).filter(x => x.start && x.status !== 'Complete');
         if (delta && later.length && confirm(`Move the later stages ${Math.abs(delta)} working day${Math.abs(delta) === 1 ? '' : 's'} ${delta > 0 ? 'later' : 'earlier'} too?`)) {
           later.forEach(x => {
+            if (pickedDays(x)) return setPickedDays(x, x.days.map(d => shiftWorkDays(d, delta)));
             x.start = shiftWorkDays(x.start, delta);
             if (x.end) x.end = shiftWorkDays(x.end, delta);
           });
@@ -2040,7 +2398,7 @@
       const cells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
       const t = today();
       const all = bookings().filter(b => b.p.status !== 'Complete' && (!ui.calCrew || b.crew.includes(ui.calCrew)));
-      const on = d => all.filter(b => b.start <= d && b.end >= d);
+      const on = d => all.filter(b => bookedOn(b, d));
       const monthName = first.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
 
       let grid = '';
@@ -2059,6 +2417,12 @@
       }
 
       const dayList = on(ui.selDay);
+      // Open stages that could be booked on the selected day
+      const bookable = [];
+      state.projects.filter(p => p.status !== 'Complete').forEach(p => STAGES.forEach(s => {
+        const st = p.stages[s.key];
+        if (st.status !== 'Complete' && !dayList.some(b => b.st === st)) bookable.push({ p, s });
+      }));
       const unscheduled = [];
       state.projects.filter(p => p.status === 'Active').forEach(p => STAGES.forEach(s => {
         const st = p.stages[s.key];
@@ -2091,8 +2455,14 @@
               ? marksOn(ui.selDay).map(mk => `<a class="brow" href="#/project/${mk.p.id}">
                   <span class="ms-key" style="background:${mk.color};margin-top:6px"></span>
                   <div class="brow-main"><div class="brow-title">${esc(mk.p.name)} · ${esc(mk.title)}</div><div class="muted">Milestone</div></div>
-                </a>`).join('') + dayList.map(bookingRow).join('')
+                </a>`).join('') + dayList.map(b => `<div class="day-row">${bookingRow(b)}
+                  <button class="icon-btn" title="Take this job off ${fmtDate(ui.selDay)}" onclick="removeStageDay('${b.p.id}','${b.s.key}','${ui.selDay}')">${ICON.x}</button>
+                </div>`).join('')
               : empty('Nothing booked on this day.')}</div>
+            ${bookable.length ? `<div class="day-add">
+              <select id="day-add">${bookable.map(o => `<option value="${o.p.id}|${o.s.key}">${esc(o.p.name)} · ${o.s.label}</option>`).join('')}</select>
+              <button class="btn btn-sm" onclick="const [pid, key] = $('day-add').value.split('|'); addStageDay(pid, key, ui.selDay)">${ICON.plus} Book</button>
+            </div>` : ''}
           </section>
           <section class="card">
             <h2>Not yet scheduled <span class="muted">${unscheduled.length}</span></h2>
@@ -2136,9 +2506,25 @@
             ${c.phone ? `<div style="margin-top:6px"><a style="color:var(--c-cyan)" href="tel:${esc(c.phone.replace(/\s/g, ''))}">${esc(c.phone)}</a></div>` : ''}
             ${c.licences ? `<div class="faint" style="margin-top:6px">${esc(c.licences)}</div>` : ''}
             <div class="faint" style="margin-top:6px">${fmtH(hours[c.id] || 0)} logged · ${c.costRate ? money(c.costRate) + '/h' : 'default rate'}</div>
+            ${todayTasksHTML(c.id)}
             <div class="rows" style="margin-top:10px">${mine.length ? mine.slice(0, 4).map(bookingRow).join('') : empty('No upcoming bookings')}</div>
           </div>`;
         }).join('')}</div>` : `<section class="card">${empty('No crew yet. Add technicians, plumbers and apprentices so you can assign them to project stages.')}</section>`}`;
+    }
+
+    /* Crew page: what this person has been given to do today */
+    function todayTasksHTML(cid) {
+      const t = today(), out = [];
+      state.projects.filter(p => p.status !== 'Complete').forEach(p => STAGES.forEach(s => {
+        const st = p.stages[s.key];
+        const items = tasksOn(st, t, cid).map(x => st.checklist.find(i => i.id === x.itemId)).filter(Boolean);
+        if (items.length) out.push(`<a class="brow" href="#/project/${p.id}/stage/${s.key}/${t}">
+          <span class="dot" style="background:${s.color}"></span>
+          <div class="brow-main"><div class="brow-title">Today · ${esc(p.name)} · ${s.label}</div>
+          <div class="muted">${items.filter(i => i.done).length} of ${items.length} done: ${esc(items.map(i => i.text).join('; '))}</div></div>
+        </a>`);
+      }));
+      return out.length ? `<div class="rows" style="margin-top:10px">${out.join('')}</div>` : '';
     }
 
     function editCrew(id) {
@@ -2551,17 +2937,18 @@
       </div></div>`;
     }
 
-    function stageBar(p, s) {
+    /* One bar for a date range, or one per run of consecutive picked days */
+    function stageBars(p, s) {
       const st = p.stages[s.key];
-      const end = st.end || st.start;
-      return { start: st.start, end, color: s.color, faded: st.status === 'Complete', title: `${s.label}: ${dateRange(st.start, end)}` };
+      const runs = pickedDays(st) ? dayRuns(pickedDays(st)) : [[st.start, st.end || st.start]];
+      return runs.map(([start, end]) => ({ start, end, color: s.color, faded: st.status === 'Complete', title: `${s.label}: ${stageDateText(st)}` }));
     }
 
     function timelineSection(p) {
       const t = today();
       const rows = STAGES.filter(s => p.stages[s.key].start).map(s => ({
-        label: s.label, sub: dateRange(p.stages[s.key].start, p.stages[s.key].end), href: `#/project/${p.id}/stage/${s.key}`,
-        bars: [stageBar(p, s)], marks: []
+        label: s.label, sub: stageDateText(p.stages[s.key]), href: `#/project/${p.id}/stage/${s.key}`,
+        bars: stageBars(p, s), marks: []
       }));
       const ms = p.milestones.filter(m => m.date);
       if (ms.length) rows.push({ label: 'Milestones', sub: `${ms.filter(m => m.done).length} of ${ms.length} done`, bars: [], marks: ms.map(m => ({ date: m.date, color: msColor(m), title: m.title })) });
@@ -2718,8 +3105,8 @@
       keys.forEach(k => {
         const r = t.plan[k];
         others.forEach(b => {
-          if (r.start <= b.end && b.start <= r.end) {
-            p.stages[k].crew.filter(c => b.crew.includes(c)).forEach(c => clashText.push(`${esc(getCrew(c)?.name)} is on ${esc(b.p.name)} (${b.s.label}), ${dateRange(b.start, b.end)}`));
+          if (bookedBetween(b, r.start, r.end)) {
+            p.stages[k].crew.filter(c => b.crew.includes(c)).forEach(c => clashText.push(`${esc(getCrew(c)?.name)} is on ${esc(b.p.name)} (${b.s.label}), ${stageDateText(b.st)}`));
           }
         });
       });
@@ -2739,7 +3126,8 @@
       if (!t.plan) { tlPreview(pid); return; }
       const p = t.p;
       t.rows.forEach(r => {
-        Object.assign(p.stages[r.key], t.plan[r.key], { estHours: String(r.hours), people: r.people, gapAfter: r.gap });
+        Object.assign(p.stages[r.key], t.plan[r.key], { estHours: String(r.hours), people: r.people, gapAfter: r.gap, days: [] });
+        delete p.stages[r.key].dayMode;
       });
       if (t.deadline) p.deadline = t.deadline;
       if (t.milestones) {
@@ -2767,7 +3155,7 @@
         return {
           label: p.name, href: `#/project/${p.id}`,
           sub: `${esc(p.jobNo)}${p.deadline ? ` · <span class="${late ? 'over' : ''}">due ${fmtDate(p.deadline)}</span>` : ''}`,
-          bars: stages.map(s => stageBar(p, s)), marks,
+          bars: stages.flatMap(s => stageBars(p, s)), marks,
           first: stages.length ? p.stages[stages[0].key].start : p.deadline || '9999'
         };
       }).filter(overlaps).sort((a, b) => a.first.localeCompare(b.first));
@@ -3660,7 +4048,7 @@
           <h2>Work completed</h2>
           <table class="r-tbl">
             <tr><th>Stage</th><th>Dates</th><th>Signed off</th></tr>
-            ${STAGES.map(s => { const st = p.stages[s.key]; return `<tr><td>${s.label}</td><td>${dateRange(st.start, st.end)}</td><td>${st.signoff ? esc(st.signoff.name) + ', ' + fmtDate(st.signoff.date, true) : '—'}</td></tr>`; }).join('')}
+            ${STAGES.map(s => { const st = p.stages[s.key]; return `<tr><td>${s.label}</td><td>${stageDateText(st)}</td><td>${st.signoff ? esc(st.signoff.name) + ', ' + fmtDate(st.signoff.date, true) : '—'}</td></tr>`; }).join('')}
           </table>
 
           ${ui.hoPhotos ? STAGES.filter(s => p.stages[s.key].photos.length).map(s => `<h3>${s.label} photos</h3>
@@ -4012,7 +4400,7 @@
         const hrs = scopeHours(p, st.key);
         const stage = p.stages[st.key];
         return `<section class="card scope-stage" style="border-top-color:${st.color}">
-          <h2>${st.label} <span class="muted">${stage.start ? dateRange(stage.start, stage.end) + ' · ' : ''}${items.length} item${items.length === 1 ? '' : 's'}${hrs ? ' · ' + fmtH(hrs) : ''}</span></h2>
+          <h2>${st.label} <span class="muted">${stage.start ? stageDateText(stage) + ' · ' : ''}${items.length} item${items.length === 1 ? '' : 's'}${hrs ? ' · ' + fmtH(hrs) : ''}</span></h2>
           <div class="rows">${items.map(i => `<div class="brow">
             <div class="brow-main">
               <div class="brow-title" ${i.by !== SCOPE_BY[0] ? 'style="color:var(--white-dim)"' : ''}>${esc(i.title)}</div>
@@ -4141,7 +4529,7 @@
             const items = s.items.filter(i => i.stage === st.key && i.title.trim());
             if (!items.length) return '';
             const stage = p.stages[st.key];
-            return `<h2 style="border-left-color:${st.color}">${st.label}${stage.start ? ` <span>${dateRange(stage.start, stage.end)}</span>` : ''}</h2>
+            return `<h2 style="border-left-color:${st.color}">${st.label}${stage.start ? ` <span>${stageDateText(stage)}</span>` : ''}</h2>
               <table class="r-tbl">
                 <tr><th>Item</th><th>Location</th><th class="num">Qty</th>${ui.scopeHours ? '<th class="num">Hours</th>' : ''}<th>By</th></tr>
                 ${items.map(i => `<tr>
@@ -5135,7 +5523,6 @@
       const issues = p.issues.filter(i => key === 'all' || i.stage === key);
       const c = p.customer || {};
       const back = key === 'all' ? `#/project/${p.id}` : `#/project/${p.id}/stage/${key}`;
-      const stageLabel = k => STAGES.find(s => s.key === k)?.label || 'General';
       const showEquip = (key === 'all' || key === 'fitoff') && p.equipment.length;
 
       return `
@@ -5207,7 +5594,7 @@
       return `
         <h2 style="border-left-color:${s.color}">${s.label} <span>${st.status}</span></h2>
         <table class="r-kv">
-          <tr><th>Dates</th><td>${dateRange(st.start, st.end)}</td></tr>
+          <tr><th>Dates</th><td>${stageDateText(st)}</td></tr>
           <tr><th>Crew</th><td>${esc(crewNames(st.crew)) || '—'}</td></tr>
           <tr><th>Checklist</th><td>${pr.done} of ${pr.total} complete</td></tr>
         </table>
@@ -5344,7 +5731,8 @@
       else if (view === 'project') {
         const p = getP(id);
         html = !p ? notFound()
-          : sub === 'stage' ? stageView(p, key)
+          : sub === 'stage' ? stageView(p, key, extra)
+          : sub === 'punch' ? punchPrintView(p)
           : sub === 'report' ? reportView(p, key)
           : sub === 'order' ? (extra === 'print' ? orderPrintView(p, key) : orderView(p, key))
           : sub === 'scope' ? (key === 'print' ? scopePrintView(p) : scopeView(p, key === 'edit'))
@@ -5352,7 +5740,7 @@
           : sub === 'handover' ? handoverView(p)
           : projectView(p);
       } else html = notFound();
-      document.body.classList.toggle('report-mode', view === 'project' && (sub === 'report' || sub === 'handover' || extra === 'print' || (sub === 'scope' && key === 'print')));
+      document.body.classList.toggle('report-mode', view === 'project' && (sub === 'report' || sub === 'handover' || extra === 'print' || (sub === 'scope' && key === 'print') || sub === 'punch'));
 
       $('app').innerHTML = html;
       loadPhotos();
@@ -5362,7 +5750,7 @@
     }
 
     window.addEventListener('hashchange', () => {
-      Object.assign(ui, { planSel: null, planDraw: null, planHover: null, planScalePts: [] });
+      Object.assign(ui, { planSel: null, planDraw: null, planHover: null, planScalePts: [], pickMonth: '', taskDay: '' });
       closeModal(); render(); window.scrollTo(0, 0);
     });
 
