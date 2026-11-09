@@ -327,7 +327,9 @@
     .dp-day.on { background: var(--white); color: #000; font-weight: 600; }
     .dp-day.busy::after, .dp-key { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--c-orange, #f07a1c); }
     .dp-day.busy::after { position: absolute; top: 4px; right: 4px; }
-    .day-row { display: flex; align-items: center; gap: 6px; }
+    .day-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .day-note { flex-basis: 100%; white-space: pre-wrap; font-size: 13px; color: var(--white-dim); background: var(--card-2); border-radius: 10px; padding: 8px 10px; margin: 2px 0 6px 22px; }
+    .day-note-input { min-height: 70px; margin-bottom: 4px; }
     .day-row > .brow { flex: 1; min-width: 0; }
     .day-add { display: flex; gap: 8px; margin-top: 12px; }
     .day-add select { flex: 1; min-width: 0; }
@@ -521,7 +523,7 @@
     const CREW_ROLES = ['Technician', 'Plumber', 'Apprentice', 'Supervisor', 'Office', 'Subcontractor'];
     const DEFECT_STATUS = ['Open', 'In progress', 'Fixed'];
     const VARIATION_STATUS = ['Pending', 'Approved', 'Rejected', 'Completed'];
-    const APP_VERSION = 17; // keep in step with CACHE in sw.js
+    const APP_VERSION = 18; // keep in step with CACHE in sw.js
     const DOC_CATS = ['Plans', 'Permit / approval', 'Compliance certificate', 'Quote', 'Purchase order', 'Invoice', 'Warranty / manual', 'Other'];
     const EQUIP_TYPES = ['Ducted unit', 'Split system (indoor)', 'Split system (outdoor)', 'Multi-head system', 'Fan coil unit', 'Gas heater', 'Evaporative cooler', 'Hot water unit', 'Pump', 'Exhaust fan', 'Other'];
 
@@ -1441,8 +1443,8 @@
       </a>`;
     }
 
-    function bookingRow(b) {
-      return `<a class="brow" href="#/project/${b.p.id}/stage/${b.s.key}">
+    function bookingRow(b, day) {
+      return `<a class="brow" href="#/project/${b.p.id}/stage/${b.s.key}${day ? '/' + day : ''}">
         <span class="dot" style="background:${b.s.color}"></span>
         <div class="brow-main">
           <div class="brow-title">${esc(b.p.name)} · ${b.s.label}</div>
@@ -1947,7 +1949,6 @@
       const P = `'${p.id}','${key}'`;
       const days = siteDays(st);
       if (!days.length) return empty('Set the dates or pick the days for this stage, then plan what each crew member does each day.');
-      if (!st.crew.length) return empty('Assign crew to this stage above, then give each person their checklist items for the day.');
       const d = planDay(st, extra);
       const prev = days.filter(x => x < d).pop();
       const items = new Map(st.checklist.map(i => [i.id, i]));
@@ -1955,8 +1956,11 @@
       return `
         <div class="day-chips">${days.map(x => {
           const n = tasksOn(st, x).length;
-          return `<button class="chip ${x === d ? 'on' : ''}" onclick="ui.taskDay='${x}'; render()">${new Date(x + 'T00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}${n ? ` · ${n}` : ''}</button>`;
+          return `<button class="chip ${x === d ? 'on' : ''}" onclick="ui.taskDay='${x}'; render()">${new Date(x + 'T00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}${n ? ` · ${n}` : ''}${dayNote(st, x) ? ' ✎' : ''}</button>`;
         }).join('')}</div>
+        <label class="lbl">Notes for ${fmtDate(d, true)}</label>
+        <textarea class="day-note-input" placeholder="Access, deliveries, who's on site, what got done…" oninput="setDayNote(${P},'${d}',this.value)">${esc(dayNote(st, d))}</textarea>
+        ${st.crew.length ? '' : empty('Assign crew to this stage above, then give each person their checklist items for the day.')}
         ${st.crew.map(cid => {
           const mine = tasksOn(st, d, cid).filter(t => items.has(t.itemId));
           const unfinished = prev ? tasksOn(st, prev, cid).filter(t => items.has(t.itemId) && !items.get(t.itemId).done && !mine.some(m => m.itemId === t.itemId)) : [];
@@ -1979,6 +1983,15 @@
             </div>`).join('')}</div>` : `<div class="faint" style="padding:6px 0">Nothing assigned for this day.</div>`}
           </div>`;
         }).join('')}`;
+    }
+
+    /* Notes for one site day: st.dayNotes = { 'YYYY-MM-DD': text } */
+    const dayNote = (st, d) => st.dayNotes?.[d] || '';
+    function setDayNote(pid, key, d, text) {
+      const st = stageOf(pid, key);
+      st.dayNotes = st.dayNotes || {};
+      if (text.trim()) st.dayNotes[d] = text; else delete st.dayNotes[d];
+      save();
     }
 
     function assignTasks(pid, key, cid, d) {
@@ -2455,8 +2468,9 @@
               ? marksOn(ui.selDay).map(mk => `<a class="brow" href="#/project/${mk.p.id}">
                   <span class="ms-key" style="background:${mk.color};margin-top:6px"></span>
                   <div class="brow-main"><div class="brow-title">${esc(mk.p.name)} · ${esc(mk.title)}</div><div class="muted">Milestone</div></div>
-                </a>`).join('') + dayList.map(b => `<div class="day-row">${bookingRow(b)}
+                </a>`).join('') + dayList.map(b => `<div class="day-row">${bookingRow(b, ui.selDay)}
                   <button class="icon-btn" title="Take this job off ${fmtDate(ui.selDay)}" onclick="removeStageDay('${b.p.id}','${b.s.key}','${ui.selDay}')">${ICON.x}</button>
+                  ${dayNote(b.st, ui.selDay) ? `<div class="day-note">${esc(dayNote(b.st, ui.selDay))}</div>` : ''}
                 </div>`).join('')
               : empty('Nothing booked on this day.')}</div>
             ${bookable.length ? `<div class="day-add">
@@ -2521,7 +2535,7 @@
         if (items.length) out.push(`<a class="brow" href="#/project/${p.id}/stage/${s.key}/${t}">
           <span class="dot" style="background:${s.color}"></span>
           <div class="brow-main"><div class="brow-title">Today · ${esc(p.name)} · ${s.label}</div>
-          <div class="muted">${items.filter(i => i.done).length} of ${items.length} done: ${esc(items.map(i => i.text).join('; '))}</div></div>
+          <div class="muted">${items.filter(i => i.done).length} of ${items.length} done: ${esc(items.map(i => i.text).join('; '))}</div>${dayNote(st, t) ? `<div class="day-note">${esc(dayNote(st, t))}</div>` : ''}</div>
         </a>`);
       }));
       return out.length ? `<div class="rows" style="margin-top:10px">${out.join('')}</div>` : '';

@@ -1,4 +1,4 @@
-const CACHE = 'hcm-proj-v17';
+const CACHE = 'hcm-proj-v18';
 const SHELL = [
   './',
   './index.html',
